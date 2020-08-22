@@ -1,1 +1,3 @@
 add_subdirectory(ConePenetrationTest)
+add_subdirectory(CollisionDemo)
+add_subdirectory(ResponseAngle)
