@@ -131,7 +131,7 @@ void ConePenetrationTest::initPhysics()
   btTransform groundTransform;
 	groundTransform.setIdentity();
 	groundTransform.setOrigin(btVector3(0, -BOX_H/2, 0));
-  createRigidBody(0., groundTransform, groundShape, btVector4(0, 0, 1, 1));
+  createRigidBody(0., groundTransform, groundShape, btVector4(0, 0, 1, 0));
 
   groundTransform.setIdentity();
   groundTransform.setOrigin(btVector3{0., -BOX_H, 0.});
@@ -142,7 +142,8 @@ void ConePenetrationTest::initPhysics()
                                         wall_thickness},
                              1);
 	m_collisionShapes.push_back(towerShape);
-  createRigidBody(0., groundTransform, towerShape, btVector4(0, 0, 1, 1));
+  auto tower = createRigidBody(0., groundTransform, towerShape, btVector4(0, 0, 0, 0));
+  double c[4] = {0.,0.,0.,0.};
 
   btTransform startTransform;
   startTransform.setIdentity();
@@ -151,6 +152,11 @@ void ConePenetrationTest::initPhysics()
   std::cout<<"ADDED: "<<m_dynamicsWorld->getNumCollisionObjects()<<std::endl;
 
 	m_guiHelper->autogenerateGraphicsObjects(m_dynamicsWorld);
+  auto id = tower->getUserIndex();
+  std::cout<<"id is"<< id<<std::endl;
+  m_guiHelper->changeRGBAColor(id, c);
+  id = m_dynamicsWorld->getCollisionObjectArray()[0]->getUserIndex();
+  m_guiHelper->changeRGBAColor(id, c);
 }
 
 void ConePenetrationTest::renderScene()
