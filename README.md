@@ -1,5 +1,6 @@
 # The regolith project
 Exploring Bullet Physics as a tool to simulate behavior of regolith and granular soils.  
+![cpt_picture](cpt_example.png)
 
 ## Requirements
 Bullet Physics installed from source (preferably in /usr/local)  
