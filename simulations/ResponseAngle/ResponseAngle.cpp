@@ -20,6 +20,8 @@ subject to the following restrictions:
 constexpr double BOX_W = 0.4;
 constexpr double BOX_H = 0.2;
 
+#include "Regolith.h"
+
 #include "LinearMath/btVector3.h"
 #include "LinearMath/btAlignedObjectArray.h"
 
@@ -28,36 +30,19 @@ constexpr double BOX_H = 0.2;
 #include <iostream>
 #include <chrono>
 #include <random>
-namespace {
-struct RegolithProperties {
-  double maxRadius;
-  double minRadius;
-  double resitution;
-  double friction;
-  double rollingFriction;
-  double mass;
-  std::vector<btCollisionShape*> collisionShapes;
-};
 
-double sizeInverseDistribution(double p, const RegolithProperties & regolithProperties) {
-  assert(p <=1.);
-  assert(p >=0.);
-  return regolithProperties.maxRadius * std::exp( std::log(regolithProperties.minRadius / regolithProperties.maxRadius) * p);
-}
-
-const auto regolithProperties = []{
+auto regolith = []{
   auto properties = RegolithProperties{};
-  properties.maxRadius = 0.04;
-  properties.minRadius = 0.005;
-  properties.resitution = 0.1;
-  properties.friction = 1.;
+  properties.maxRadius = 0.04; // m
+  properties.minRadius = 0.04; // m
+  properties.restitution = 0.1;
+  properties.friction = 0.35;
   properties.rollingFriction = 1.;
-  properties.mass = 0.3;
-  for(int i = 0; i <= 1; ++i) {
-    properties.collisionShapes.push_back(new btSphereShape(sizeInverseDistribution(0., properties)));
-  }
-  return properties;}();
-
+  properties.materialDensity = 2.68 * 997; // kg / m^3
+  properties.maxDensity = 1667; // kg / m^3
+  properties.minDensity = 1364; // kg / m^3
+  return Regolith{properties, 10};
+}();
 
 struct ResponseAngle : public CommonRigidBodyBase
 {
@@ -105,10 +90,11 @@ void ResponseAngle::initPhysics()
   ground->setRestitution(0.);
   ground->setFriction(1);
 
-	m_guiHelper->autogenerateGraphicsObjects(m_dynamicsWorld);
-  for(auto shape : regolithProperties.collisionShapes) {
-    m_collisionShapes.push_back(shape);
-  }
+  // TODO : is it required for sth?
+	//m_guiHelper->autogenerateGraphicsObjects(m_dynamicsWorld);
+  //for(auto shape : regolithProperties.collisionShapes) {
+  //  m_collisionShapes.push_back(shape);
+  //}
 }
 
 void ResponseAngle::renderScene()
@@ -143,14 +129,16 @@ void ResponseAngle::stepSimulation(float deltaTime)
           {
             startTransform.setOrigin(btVector3(
               btScalar(-BOX_W/2. + (BOX_W)/(ARRAY_SIZE_X-1) * i),
-              btScalar(2*BOX_H + (1. + k) * 2. * regolithProperties.maxRadius),
+              btScalar(2*BOX_H + (1. + k) * 2. * regolith.properties.maxRadius),
               btScalar(-BOX_W/2. + (BOX_W)/(ARRAY_SIZE_Z-1) * j)));
 
-            auto body = createRigidBody(regolithProperties.mass, startTransform, regolithProperties.collisionShapes[uniform_distribution(random_engine)], btVector4(0,0,1,1), btVector3(0,-1.,0));
-            body->setFriction(regolithProperties.friction);
-            body->setRestitution(regolithProperties.resitution);
-            body->setRollingFriction(regolithProperties.rollingFriction);
-            body->setLinearVelocity(btVector3(vertical_vel_distribution(random_engine), 0., vertical_vel_distribution(random_engine)));
+            auto body = regolith.createGrain(this, startTransform);
+
+            //TODO: I think I wanted to add inertia here? But createGrain interface won't handle it
+            //auto body = regolith.createGrain(this, btVector4(0,0,1,1), btVector3(0,-1.,0));
+
+
+            body->setLinearVelocity(btVector3(vertical_vel_distribution(random_engine), -1., vertical_vel_distribution(random_engine)));
           }
         }
       }
@@ -191,7 +179,6 @@ void ResponseAngle::stepSimulation(float deltaTime)
   if(m_dynamicsWorld) {
     m_dynamicsWorld->stepSimulation(deltaTime);
   }
-}
 }
 
 CommonExampleInterface* CreateFunc(CommonExampleOptions& options)

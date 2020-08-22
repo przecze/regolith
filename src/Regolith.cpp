@@ -34,8 +34,7 @@ btRigidBody* Regolith::createGrain(CommonRigidBodyBase* bodyBase, btTransform& t
   auto body = bodyBase->createRigidBody(grainMasses[selection],
                                         transform,
                                         shape,
-                                        btVector4(0,0,1,1),
-                                        btVector3(0,-1.,0));
+                                        btVector4(0,0,1,1));
   body->setFriction(properties.friction);
   body->setRestitution(properties.restitution);
   body->setRollingFriction(properties.rollingFriction);
