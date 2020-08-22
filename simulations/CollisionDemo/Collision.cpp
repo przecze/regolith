@@ -80,11 +80,11 @@ void CollisionDemo::initPhysics()
 		btScalar mass(1.f);
 
     startTransform.setOrigin(btVector3(0, DROP_H, 0));
-    auto b = createRigidBody(mass, startTransform, colShape, btVector4(0,0,1,1), btVector3(0,-1.,0));
+    auto b = createRigidBody(mass, startTransform, colShape, btVector4(0,0,1,1));
     b->setRestitution(0.5);
 
     startTransform.setOrigin(btVector3(0, 2*DROP_H, 0));
-    b = createRigidBody(mass, startTransform, colShape, btVector4(0,0,1,1), btVector3(0,-1.,0));
+    b = createRigidBody(mass, startTransform, colShape, btVector4(0,0,1,1));
     b->setRestitution(0.5);
 
 		//rigidbody is dynamic if and only if mass is non zero, otherwise static
