@@ -13,7 +13,6 @@ subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
-#include "ConePenetrationTest.h"
 #include "utils.h"
 #include "Regolith.h"
 
@@ -349,9 +348,9 @@ void ConePenetrationTest::createPressurePlate() {
 }
 }
 
-CommonExampleInterface* ConePenetrationTestCreateFunc(CommonExampleOptions& options)
+CommonExampleInterface* CreateFunc(CommonExampleOptions& options)
 {
 	return new ConePenetrationTest(options.m_guiHelper);
 }
 
-B3_STANDALONE_EXAMPLE(ConePenetrationTestCreateFunc)
+B3_STANDALONE_EXAMPLE(CreateFunc)

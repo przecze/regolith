@@ -12,9 +12,6 @@ subject to the following restrictions:
 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 */
-
-#include "Collision.h"
-
 #include "btBulletDynamicsCommon.h"
 
 #include "LinearMath/btVector3.h"
@@ -132,9 +129,9 @@ void CollisionDemo::stepSimulation(float deltaTime)
   std::this_thread::sleep_for(milliseconds(1000/60));
 }
 
-CommonExampleInterface* CollisionDemoCreateFunc(CommonExampleOptions& options)
+CommonExampleInterface* CreateFunc(CommonExampleOptions& options)
 {
 	return new CollisionDemo(options.m_guiHelper);
 }
 
-B3_STANDALONE_EXAMPLE(CollisionDemoCreateFunc)
+B3_STANDALONE_EXAMPLE(CreateFunc)
