@@ -1,5 +1,3 @@
-#include "ConePenetrationTest.h"
-
 #include "CommonInterfaces/CommonExampleInterface.h"
 #include "CommonInterfaces/CommonGUIHelperInterface.h"
 #include "BulletCollision/CollisionDispatch/btCollisionObject.h"
@@ -9,12 +7,14 @@
 #include "LinearMath/btTransform.h"
 #include "LinearMath/btHashMap.h"
 
+CommonExampleInterface* CreateFunc(struct CommonExampleOptions& options);
+
 int main(int argc, char* argv[])
 {
 	DummyGUIHelper noGfx;
 
 	CommonExampleOptions options(&noGfx);
-	auto example = ConePenetrationTestCreateFunc(options);
+	auto example = CreateFunc(options);
 
 	example->initPhysics();
   while(true) {

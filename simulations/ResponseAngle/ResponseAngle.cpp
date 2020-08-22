@@ -13,8 +13,6 @@ subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
-#include "ResponseAngle.h"
-
 #include "btBulletDynamicsCommon.h"
 #define ARRAY_SIZE_X 6
 #define ARRAY_SIZE_Z 6
@@ -196,9 +194,9 @@ void ResponseAngle::stepSimulation(float deltaTime)
 }
 }
 
-CommonExampleInterface* ResponseAngleCreateFunc(CommonExampleOptions& options)
+CommonExampleInterface* CreateFunc(CommonExampleOptions& options)
 {
 	return new ResponseAngle(options.m_guiHelper);
 }
 
-B3_STANDALONE_EXAMPLE(ResponseAngleCreateFunc)
+B3_STANDALONE_EXAMPLE(CreateFunc)
