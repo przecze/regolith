@@ -5,7 +5,7 @@ function(create_simulation)
   file( GLOB SOURCES *.cpp )
   add_executable(${sim_name} ../common/main.cpp "${SOURCES}")
   include_directories(${CMAKE_CURRENT_LIST_DIR})
-  target_link_libraries(${sim_name} regolith utils "${BULLET_LIBRARIES}")
+  target_link_libraries(${sim_name} regolith utils yaml-cpp "${BULLET_LIBRARIES}")
 
   add_definitions(-DB3_USE_STANDALONE_EXAMPLE)
   add_executable(${sim_name}_gui ../common/main_gui.cpp "${SOURCES}")
