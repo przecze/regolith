@@ -51,15 +51,7 @@ double correction_factor(double Dr, double Rd) {
 
 
 auto regolith = []{
-  auto properties = RegolithProperties{};
-  properties.maxRadius = 0.04; // m
-  properties.minRadius = 0.04; // m
-  properties.restitution = 0.1;
-  properties.friction = 0.35;
-  properties.rollingFriction = 1.;
-  properties.materialDensity = 2.68 * 997; // kg / m^3
-  properties.maxDensity = 1667; // kg / m^3
-  properties.minDensity = 1364; // kg / m^3
+  auto properties = load_properties_from_file("regolith.yaml");
   return Regolith{properties, 10};
 }();
 
