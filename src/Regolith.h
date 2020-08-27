@@ -2,6 +2,7 @@
 #include "CommonInterfaces/CommonRigidBodyBase.h"
 
 #include <vector>
+#include <string>
 
 struct RegolithProperties {
   btScalar maxRadius;
@@ -13,6 +14,8 @@ struct RegolithProperties {
   btScalar maxDensity;
   btScalar minDensity;
 };
+
+RegolithProperties load_properties_from_file(std::string filename);
 
 class Regolith {
   public:
