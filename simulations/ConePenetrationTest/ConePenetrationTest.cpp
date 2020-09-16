@@ -190,7 +190,7 @@ void ConePenetrationTest::stepPressurePhase()
 	auto plate_v = pressurePlate->getLinearVelocity().getY();
 	std::cout<<"plate y: "<<plate_y<<" v: "<<plate_v<<std::endl;
 
-	if(abs(plate_y)<0.01) {
+	if(abs(plate_v)<0.01) {
 		std::cout<<"Entering PENETRATION_PHASE"<<std::endl;
 		phase = PENETRATION_PHASE;
 		createProbe();
