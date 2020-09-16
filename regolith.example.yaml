@@ -1,0 +1,16 @@
+# physics properties
+restitution: 0.1
+friction: 0.35
+rollingFriction: 1.
+
+# radii in m
+maxRadius: 0.04
+minRadius: 0.04
+
+# Below values in kg/m^3
+
+# 2.68*997
+materialDensity: 2672
+
+maxDensity: 1667
+minDensity: 1364
