@@ -85,6 +85,9 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 	void resetVelocities();
 
 	void stepFillingPhase();
+	void stepStabilizationPhase();
+	void stepPressurePhase();
+	void stepPenetrationPhase(int steps_since_last_update);
 
 	enum {
 	  FILLING_PHASE,
@@ -168,6 +171,75 @@ void ConePenetrationTest::stepFillingPhase()
 	}
 }
 
+void ConePenetrationTest::stepStabilizationPhase()
+{
+	int removed = removeGrains();
+	resetVelocities();
+	if(removed == 0) {
+	  phase=PRESSURE_PHASE;
+	  rescaleTime(4.);
+	  std::cout<<"Entering PRESSURE_PHASE"<<std::endl;
+	  createPressurePlate();
+	  std::cout<<"Create pressure plate"<<std::endl;
+	}
+}
+
+void ConePenetrationTest::stepPressurePhase()
+{
+	auto plate_y = pressurePlate->getWorldTransform().getOrigin().getY();
+	auto plate_v = pressurePlate->getLinearVelocity().getY();
+	std::cout<<"plate y: "<<plate_y<<" v: "<<plate_v<<std::endl;
+
+	if(abs(plate_y)<0.01) {
+		std::cout<<"Entering PENETRATION_PHASE"<<std::endl;
+		phase = PENETRATION_PHASE;
+		createProbe();
+		auto h = pressurePlate->getWorldTransform().getOrigin().getY()-pressurePlateThickness/2;
+		auto V = h*BOX_DIAMETER/2.*BOX_DIAMETER/2.*SIMD_PI;
+		double grains_mass = 0.;
+		double grains_volume = 0.;
+		for(auto i = m_dynamicsWorld->getNumCollisionObjects()-1; i>=0; --i) {
+			auto body = m_dynamicsWorld->getCollisionObjectArray()[i];
+			if(body->getCollisionShape()->getShapeType() == SPHERE_SHAPE_PROXYTYPE) {
+				grains_mass+=1./btRigidBody::upcast(body)->getInvMass();
+				auto r =dynamic_cast<btSphereShape*>(body->getCollisionShape())->getRadius();
+				grains_volume+=4./3.*SIMD_PI*r*r*r;
+			}
+		}
+		std::cout<<"void ratio: "<<(V-grains_volume)/grains_volume<<std::endl;
+		std::cout<<"\% of volume used: "<<grains_volume/V*100.<<std::endl;
+		auto relativeDensity = ((grains_mass/V)-regolith.properties.minDensity)/(regolith.properties.maxDensity - regolith.properties.minDensity);
+		std::cout<<"relative density: "<<relativeDensity<<std::endl;
+		correctionFactor = correction_factor(relativeDensity, BOX_DIAMETER/2./probeRadius);
+		constexpr double p0 = 1000*100;
+		auto expectedResistance = 23.19*p0*std::pow(pressure/p0, 0.56)*std::exp(2.97*relativeDensity);
+		auto expectedMeasuredResistance = expectedResistance/correctionFactor;
+		std::cout<<"correctionFactor: "<<correctionFactor<<std::endl;
+		std::cout<<"expected resistance to be measured: "<<expectedResistance<<std::endl;
+	}
+}
+
+void ConePenetrationTest::stepPenetrationPhase(int steps_since_last_update) {
+	// calculate change in momentum
+	auto v_0 = probe->getLinearVelocity();
+	auto mass = 1./probe->getInvMass();
+	auto momentumChange = (btVector3(0., probeVelocity, 0.) - v_0).getY()*mass;
+
+	// some of the momentum change is caused by gravity
+	// we have to calculate and substract it to obtain momentum change
+	// caused by grains resistance
+	auto gravityMomentumChange = m_dynamicsWorld->getGravity().getY()*mass*steps_since_last_update*dt;
+	momentumChange -= gravityMomentumChange;
+
+	auto resistanceForce = (momentumChange)/(steps_since_last_update*dt);
+	auto resistance = resistanceForce / (probeRadius*probeRadius*SIMD_PI);
+	std::cout<<resistance<<std::endl;
+
+	// correct probe velocity and position
+	probe->setLinearVelocity(btVector3(0.,probeVelocity,0.));
+	auto position_correction = btVector3(0., probeVelocity, 0.)*steps_since_last_update*dt;
+	probe->getWorldTransform().setOrigin(probe->getWorldTransform().getOrigin() + position_correction);
+}
 
 void ConePenetrationTest::stepSimulation(float deltaTime)
 {
@@ -176,77 +248,28 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 	static int steps_since_last_update = 0;
 	static int grains_count = 0;
 	{
-	  auto numSteps = m_dynamicsWorld->stepSimulation(deltaTime, 1, dt); // note: maxSubSteps = 1 is passed implicitly here as default argument. Therefore we will do only one step (1/60 s) not the whole deltaTime ( = 0.1 s in gui demos)
-	  steps_since_last_update += numSteps;
+		auto numSteps = m_dynamicsWorld->stepSimulation(deltaTime, 1, dt);
+ 		// note: maxSubSteps = 1 is passed implicitly here as default argument.
+ 		// Therefore we will do only one step (1/60 s) not the whole deltaTime
+ 		// ( = 0.1 s in gui demos)
+		steps_since_last_update += numSteps;
 	}
 	if(steps_since_last_update*dt > update_time) {
-	  auto current = steady_clock::now();
-	  auto elapsed = current - last;
-	  last = current;
-	  std::cout<<"last step took: "<<std::chrono::duration_cast<milliseconds>(elapsed).count()<<" ms"<<std::endl;
-	  if(phase == FILLING_PHASE) {
-	    stepFillingPhase();
-	  } else if (phase == STABILIZATION_PHASE) {
-	      int removed = removeGrains();
-	      resetVelocities();
-	      if(removed == 0) {
-	        phase=PRESSURE_PHASE;
-	        rescaleTime(4.);
-	        std::cout<<"Entering PRESSURE_PHASE"<<std::endl;
-	        createPressurePlate();
-	        std::cout<<"Create pressure plate"<<std::endl;
-	      }
-	  } else if (phase == PRESSURE_PHASE) {
-	      std::cout<<"plate y: "<<pressurePlate->getWorldTransform().getOrigin().getY()<<" v: "<<pressurePlate->getLinearVelocity().getY()<<std::endl;
-	      if(abs(pressurePlate->getLinearVelocity().getY())<0.01) {
-	        std::cout<<"Entering PENETRATION_PHASE"<<std::endl;
-	        phase = PENETRATION_PHASE;
-	        createProbe();
-	        auto h = pressurePlate->getWorldTransform().getOrigin().getY()-pressurePlateThickness/2;
-	        auto V = h*BOX_DIAMETER/2.*BOX_DIAMETER/2.*SIMD_PI;
-	        double grains_mass = 0.;
-	        double grains_volume = 0.;
-	        for(auto i = m_dynamicsWorld->getNumCollisionObjects()-1; i>=0; --i) {
-	          auto body = m_dynamicsWorld->getCollisionObjectArray()[i];
-	          if(body->getCollisionShape()->getShapeType() == SPHERE_SHAPE_PROXYTYPE) {
-	            grains_mass+=1./btRigidBody::upcast(body)->getInvMass();
-	            auto r =dynamic_cast<btSphereShape*>(body->getCollisionShape())->getRadius();
-	            grains_volume+=4./3.*SIMD_PI*r*r*r;
-	          }
-	        }
-	        std::cout<<"void ratio: "<<(V-grains_volume)/grains_volume<<std::endl;
-	        std::cout<<"\% of volume used: "<<grains_volume/V*100.<<std::endl;
-	        auto relativeDensity = ((grains_mass/V)-regolith.properties.minDensity)/(regolith.properties.maxDensity - regolith.properties.minDensity);
-	        std::cout<<"relative density: "<<relativeDensity<<std::endl;
-	        correctionFactor = correction_factor(relativeDensity, BOX_DIAMETER/2./probeRadius);
-	        constexpr double p0 = 1000*100;
-	        auto expectedResistance = 23.19*p0*std::pow(pressure/p0, 0.56)*std::exp(2.97*relativeDensity);
-	        auto expectedMeasuredResistance = expectedResistance/correctionFactor;
-	        std::cout<<"correctionFactor: "<<correctionFactor<<std::endl;
-	        std::cout<<"expected resistance to be measured: "<<expectedResistance<<std::endl;
-	      }
-	  } else if (phase == PENETRATION_PHASE) {
-	    auto v_0 = probe->getLinearVelocity();
-	    auto mass = 1./probe->getInvMass();
-	    auto momentumChange = (btVector3(0., probeVelocity, 0.) - v_0).getY()*mass;
-	    auto gravityMomentumChange = m_dynamicsWorld->getGravity().getY()*mass*steps_since_last_update*dt;
-	    auto resistanceForce = (momentumChange)/(steps_since_last_update*dt);
-	    auto resistance = resistanceForce / (probeRadius*probeRadius*SIMD_PI);
-	    std::cout<<resistance<<std::endl;
-	    probe->setLinearVelocity(btVector3(0.,probeVelocity,0.));
-	    probe->getWorldTransform().setOrigin(probe->getWorldTransform().getOrigin() + btVector3(0., probeVelocity, 0.)*steps_since_last_update*dt);
-	    auto probeIndex = m_dynamicsWorld->getNumCollisionObjects() - 1;
-	    btCollisionObject* obj=m_dynamicsWorld->getCollisionObjectArray()[probeIndex];
-	    btRigidBody* body=btRigidBody::upcast(obj);
-	    btTransform trans;
-	    if(body&&body->getMotionState()) {
-	      body->getMotionState()->getWorldTransform(trans);
-	    } else {
-	      trans=obj->getWorldTransform();
-	    }
-	  } else if (phase == FINISHED_PHASE) {
-	  }
-	  steps_since_last_update = 0;
+		auto current = steady_clock::now();
+		auto elapsed = current - last;
+		last = current;
+		std::cout<<"last step took: "<<std::chrono::duration_cast<milliseconds>(elapsed).count()<<" ms"<<std::endl;
+		if(phase == FILLING_PHASE) {
+			stepFillingPhase();
+		} else if (phase == STABILIZATION_PHASE) {
+			stepStabilizationPhase();
+		} else if (phase == PRESSURE_PHASE) {
+  			stepPressurePhase();
+		} else if (phase == PENETRATION_PHASE) {
+			stepPenetrationPhase(steps_since_last_update);
+		} else if (phase == FINISHED_PHASE) {
+		}
+		steps_since_last_update = 0;
 	}
 
 }
