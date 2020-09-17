@@ -1,6 +1,8 @@
 #include "btBulletDynamicsCommon.h"
 #include "CommonInterfaces/CommonRigidBodyBase.h"
 
+#include "yaml-cpp/yaml.h"
+
 #include <vector>
 #include <string>
 
@@ -15,6 +17,7 @@ struct RegolithProperties {
   btScalar minDensity;
 };
 
+RegolithProperties load_properties_from_yaml(const YAML::Node& config);
 RegolithProperties load_properties_from_file(std::string filename);
 
 class Regolith {
