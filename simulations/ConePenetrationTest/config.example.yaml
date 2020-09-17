@@ -1,0 +1,27 @@
+box:
+  diameter: 1.2
+  height: 0.7
+probe:
+  velocity: -.1
+  radius: 0.07
+pressure:
+  value: 60000
+  plate_thickness: 0.05
+
+regolith:
+  # physics properties
+  restitution: 0.1
+  friction: 0.35
+  rollingFriction: 1.
+
+  # radii in m
+  maxRadius: 0.04
+  minRadius: 0.04
+
+  # Below values in kg/m^3
+
+  # 2.68*997
+  materialDensity: 2672
+
+  maxDensity: 1667
+  minDensity: 1364

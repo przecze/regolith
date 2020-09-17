@@ -26,12 +26,6 @@ subject to the following restrictions:
 #include <random>
 
 namespace {
-constexpr double BOX_DIAMETER = 1.2; // m
-constexpr double BOX_H = 0.7; // m
-constexpr double probeVelocity = -.1; // m/s
-constexpr btScalar probeRadius = 0.07; // m
-constexpr btScalar pressure = 60000; // Pa
-constexpr btScalar pressurePlateThickness = 0.05; // m
 
 double correction_factor_old(double Dr, double Rd) {
 	// I think I read somewhere that this version can be used for BC3.
@@ -48,20 +42,30 @@ double correction_factor(double Dr, double Rd) {
 	return std::pow((Rd-1)/70, -Dr/2.);
 }
 
-
-
-auto regolith = []{
-	auto properties = load_properties_from_file("regolith.yaml");
-	return Regolith{properties, 10};
-}();
-
-	
 struct ConePenetrationTest : public CommonRigidBodyBase
 {
-	ConePenetrationTest(struct GUIHelperInterface* helper)
-		: CommonRigidBodyBase(helper)
+	ConePenetrationTest(struct GUIHelperInterface* helper,
+	                    RegolithProperties regolith_properties,
+						const YAML::Node& config)
+		: CommonRigidBodyBase(helper),
+		  regolith(regolith_properties, 10),
+		  config(YAML::Clone(config)),
+		  BOX_DIAMETER(config["box"]["diameter"].as<double>()),
+		  BOX_H(config["box"]["height"].as<double>()),
+		  probeVelocity(config["probe"]["velocity"].as<double>()),
+		  probeRadius(config["probe"]["radius"].as<double>()),
+		  pressure(config["pressure"]["value"].as<double>()),
+		  pressurePlateThickness(config["pressure"]["plate_thickness"].as<double>())
 	{
 	}
+
+	const double BOX_DIAMETER; // m
+	const double BOX_H; // m
+	const double probeVelocity; // m/s
+	const double probeRadius; // m
+	const double pressure; // Pa
+	const double pressurePlateThickness; // m
+
 	virtual ~ConePenetrationTest() {}
 	virtual void initPhysics();
 	virtual void renderScene();
@@ -101,12 +105,15 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 
 	btScalar dt = 1./60.; // s
 	double update_time = 1.; // s
+
 	void rescaleTime(float rescaleFactor) {
 	  std::cout<<"Rescaling time by factor "<<rescaleFactor<<std::endl;
 	  dt/=rescaleFactor;
 	  update_time/=rescaleFactor;
 	}
 
+	Regolith regolith;
+	YAML::Node config;
 };
 
 void ConePenetrationTest::initPhysics()
@@ -372,7 +379,19 @@ void ConePenetrationTest::createPressurePlate() {
 
 CommonExampleInterface* CreateFunc(CommonExampleOptions& options)
 {
-	return new ConePenetrationTest(options.m_guiHelper);
+	auto config = YAML::LoadFile("config.yaml");
+	auto properties = [&config]{
+		try {
+			std::cout<<"Regolith configuration found in config.yaml"<<std::endl;
+			return load_properties_from_yaml(config["regolith"]);
+		}
+		catch(YAML::InvalidNode) {
+			std::cout<<"No regolith configuration found in config.yaml. "
+								 "Loading regolith.yaml"<<std::endl;
+			return load_properties_from_file("regolith.yaml");
+		}}();
+
+	return new ConePenetrationTest(options.m_guiHelper, properties, config);
 }
 
 B3_STANDALONE_EXAMPLE(CreateFunc)

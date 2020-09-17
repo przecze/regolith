@@ -10,26 +10,22 @@
 #include <random>
 #include <iostream>
 
-RegolithProperties load_properties_from_file(std::string filename) {
-	YAML::Node config = YAML::LoadFile(filename);
+RegolithProperties load_properties_from_yaml(const YAML::Node& config) {
   RegolithProperties properties;
   properties.maxRadius = config["maxRadius"].as<btScalar>();
-  std::cout<<properties.maxRadius<<std::endl;
   properties.minRadius = config["minRadius"].as<btScalar>();
-  std::cout<<properties.maxRadius<<std::endl;
   properties.restitution = config["restitution"].as<btScalar>();
-  std::cout<<properties.maxRadius<<std::endl;
   properties.friction = config["friction"].as<btScalar>();
-  std::cout<<properties.maxRadius<<std::endl;
   properties.rollingFriction = config["rollingFriction"].as<btScalar>();
-  std::cout<<properties.maxRadius<<std::endl;
   properties.materialDensity = config["materialDensity"].as<btScalar>();
-  std::cout<<properties.maxRadius<<std::endl;
   properties.maxDensity = config["maxDensity"].as<btScalar>();
-  std::cout<<properties.maxRadius<<std::endl;
   properties.minDensity = config["minDensity"].as<btScalar>();
-  std::cout<<properties.maxRadius<<std::endl;
   return properties;
+}
+
+RegolithProperties load_properties_from_file(std::string filename) {
+  YAML::Node config = YAML::LoadFile(filename);
+  return load_properties_from_yaml(config);
 }
 
 
