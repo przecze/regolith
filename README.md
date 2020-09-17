@@ -16,4 +16,8 @@ make
 ```
 
 ## Run simulations
+For ConePenetrationTest, link example config to current directory:
+```
+ln -s simulations/ConePenetrationTest/config.example.yaml build/config.yaml
+```
 Executables for simulations will be in `build/simulations` subdirectories
