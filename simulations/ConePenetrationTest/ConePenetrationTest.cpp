@@ -138,7 +138,7 @@ void ConePenetrationTest::initPhysics()
 	auto ground = createRigidBody(0., groundTransform, groundShape, btVector4(0, 0, 1, 0));
 
 	// create walls as single tower shape
-	auto wall_thickness = 0.01;
+	auto wall_thickness = config["box"]["wall_thickness"].as<double>();
 	auto towerShape = utils::BuildTowerCompoundShape(
 	                           btVector3{(BOX_DIAMETER+wall_thickness)/(std::sqrt(5 + 2.*std::sqrt(5))),
 	                                      BOX_H*2.,
@@ -164,7 +164,7 @@ void ConePenetrationTest::renderScene()
 
 void ConePenetrationTest::stepFillingPhase()
 {
-	constexpr auto layers_per_update = 2;
+  auto layers_per_update = config["simulation"]["filling"]["layers_per_update"].as<int>();
 	int removed = removeGrains();
 	auto removed_limit = BOX_DIAMETER*BOX_DIAMETER
 		               /regolith.properties.maxRadius
@@ -357,7 +357,7 @@ void ConePenetrationTest::createProbe() {
 
 	probeTransform.setOrigin(btVector3(0., BOX_H, 0.));
 	
-	auto probeMass = 100.;
+	auto probeMass = config["probe"]["mass"].as<double>();
 	probe = createRigidBody(probeMass, probeTransform, probeShape);
 	probe->setLinearVelocity(btVector3{0., probeVelocity, 0.});
 	probe->setIgnoreCollisionCheck(pressurePlate, true);
