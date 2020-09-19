@@ -13,7 +13,9 @@ docker run regolith
 Note, that these commands will take long time and won't install anything on your local machine.  
 They will only allow you to run one example from _simulations_ directory without gui.  
 They will not provide an easy way to modify and rebuild code or modify the configuration.  
-Execute the commands used inside Dockerfile on your local machine to have fully prepared environment.
+Execute the commands used inside Dockerfile on your local machine to have fully prepared environment.  
+
+In case of any problems with the installation, feel free to open an issue in Github
 
 ## Requirements
 Bullet Physics installed from source (preferably in /usr/local)  
