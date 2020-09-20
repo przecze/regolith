@@ -18,9 +18,26 @@ Execute the commands used inside Dockerfile on your local machine to have fully 
 In case of any problems with the installation, feel free to open an issue in Github
 
 ## Requirements
-Bullet Physics installed from source (preferably in /usr/local)  
+All packages listed below must be installed in a fashion that they are
+discoverable by cmake `find_package` function.
+For example installation steps, refer to [the Dockerfile](Dockerfile)
+### Bullet Physics
+Bullet Physics installed from source
 Note: bullet installed via `apt install libbullet-dev` **will not work**  
 because CommonInterfaces (used for examples) are not included in the package  
+
+### yaml-cpp
+Required for configuration files
+https://github.com/przecze/packgen
+
+
+### packgen
+Packgen is a library created by authors of the "[An efficient algorithm to
+generate random sphere packs in arbitrary
+domains](https://www.sciencedirect.com/science/article/pii/S0898122116300864#!)"
+paper. Original code is here: https://git.tecgraf.puc-rio.br/elozano/packgen
+However to install it use this fork: https://github.com/przecze/pacgen where cmake support is added
+Packgen is used for generating the samples for simulations.
 
 ## Build instructions
 ```

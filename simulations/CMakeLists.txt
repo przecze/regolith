@@ -5,11 +5,11 @@ function(create_simulation)
   file( GLOB SOURCES *.cpp )
   add_executable(${sim_name} ../common/main.cpp "${SOURCES}")
   include_directories(${CMAKE_CURRENT_LIST_DIR})
-  target_link_libraries(${sim_name} regolith utils yaml-cpp "${BULLET_LIBRARIES}")
+  target_link_libraries(${sim_name} regolith utils yaml-cpp packgen "${BULLET_LIBRARIES}")
 
   add_definitions(-DB3_USE_STANDALONE_EXAMPLE)
   add_executable(${sim_name}_gui ../common/main_gui.cpp "${SOURCES}")
-  target_link_libraries(${sim_name}_gui regolith utils OpenGLWindow BulletExampleBrowserLib Bullet3OpenCL_clew Bullet3Common "${BULLET_LIBRARIES}" dl pthread)
+  target_link_libraries(${sim_name}_gui regolith utils packgen OpenGLWindow BulletExampleBrowserLib Bullet3OpenCL_clew Bullet3Common "${BULLET_LIBRARIES}" dl pthread)
 endfunction()
 
 file( GLOB subdirs ./* )
