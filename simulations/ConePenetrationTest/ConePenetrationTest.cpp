@@ -21,6 +21,9 @@ subject to the following restrictions:
 #include "LinearMath/btAlignedObjectArray.h"
 #include "CommonInterfaces/CommonRigidBodyBase.h"
 
+#include "packgen/gen_container.h"
+#include "packgen/gen_num.h"
+
 #include <iostream>
 #include <chrono>
 #include <random>
@@ -119,6 +122,8 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 
 void ConePenetrationTest::initPhysics()
 {
+	double rmin(0.01), rmax(0.03), rmaxprob(0.5);
+	PG::NG* ng = new PG::BernoulliNG(rmin, rmax, rmaxprob);
 	m_guiHelper->setUpAxis(1);
 	const double transparent[4] = {0.,0.,0.,0.};
 

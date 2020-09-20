@@ -18,6 +18,14 @@ WORKDIR /third_party/yaml-cpp/cmake_build
 RUN cmake ..
 RUN make -j4 install
 
+# Install packgen
+WORKDIR /third_party
+# Note: we use a custom fork of packgen with cmake support added
+RUN git clone --depth 1 --branch master --single-branch https://github.com/przecze/packgen.git
+WORKDIR /third_party/packgen/cmake_build
+RUN cmake ..
+RUN make -j4 install
+
 # Build the app
 ADD ./ /app/
 WORKDIR /app/build_docker
