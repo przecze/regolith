@@ -21,8 +21,7 @@ subject to the following restrictions:
 #include "LinearMath/btAlignedObjectArray.h"
 #include "CommonInterfaces/CommonRigidBodyBase.h"
 
-#include "packgen/gen_container.h"
-#include "packgen/gen_num.h"
+#include "packgen/gen_pack.h"
 
 #include <iostream>
 #include <chrono>
@@ -91,7 +90,8 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 	void createPressurePlate();
 
 	int removeGrains();
-	void addGrains(int layers, bool initial);
+	void addGrains(int layers);
+	void addInitialGrains();
 	void resetVelocities();
 
 	void stepFillingPhase();
@@ -122,8 +122,6 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 
 void ConePenetrationTest::initPhysics()
 {
-	double rmin(0.01), rmax(0.03), rmaxprob(0.5);
-	PG::NG* ng = new PG::BernoulliNG(rmin, rmax, rmaxprob);
 	m_guiHelper->setUpAxis(1);
 	const double transparent[4] = {0.,0.,0.,0.};
 
@@ -153,7 +151,7 @@ void ConePenetrationTest::initPhysics()
 	auto tower = createRigidBody(0., groundTransform, towerShape, btVector4(0, 0, 0, 0));
 
 	// add initial grains
-	addGrains(BOX_H/(2.*regolith.properties.maxRadius), true);
+	addInitialGrains();
 	std::cout<<"ADDED: "<<m_dynamicsWorld->getNumCollisionObjects()<<std::endl;
 
 	// initialize graphics
@@ -179,7 +177,7 @@ void ConePenetrationTest::stepFillingPhase()
 	  std::cout<<"Entering STABILIZATION_PHASE"<<std::endl;
 	  phase = STABILIZATION_PHASE;
 	} else {
-	  addGrains(layers_per_update, false);
+	  addGrains(layers_per_update);
 	  std::cout<<"Grains count: "<<m_dynamicsWorld->getNumCollisionObjects()<<std::endl;
 	}
 }
@@ -287,13 +285,30 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 
 }
 
-void ConePenetrationTest::addGrains(int layers, bool initial) {
+void ConePenetrationTest::addInitialGrains() {
+	PG::Container* container = new PG::Cylinder({0.0, 0.0, 0.0},
+                                              {0.0, BOX_H, 0.0},
+                                              BOX_DIAMETER/2);
+	PG::NG* ng = new PG::UniformNG(regolith.properties.minRadius,
+                                 regolith.properties.maxRadius);
+	PG::Grid3d dom;
+	PG::SpherePack* pack = new PG::SpherePack();
+	PG::SpherePackStat result = PG::GenerateSpherePack(container, ng, &dom, pack);
+	btTransform startTransform;
+	for(auto s : pack->s) {
+		startTransform.setOrigin(btVector3(s.x, s.y, s.z));
+		auto body = regolith.createGrain(this, startTransform);
+	}
+	m_guiHelper->autogenerateGraphicsObjects(m_dynamicsWorld);
+}
+
+void ConePenetrationTest::addGrains(int layers) {
 	btTransform startTransform;
 	startTransform.setIdentity();
 	auto random_engine = std::mt19937{std::random_device{}()};
 	auto vertical_vel_distribution = std::uniform_real_distribution<btScalar>{-0.05, 0.05};
-	double y = initial?0:BOX_H;
-	const double R = initial?(BOX_DIAMETER/2.):(BOX_DIAMETER/3.);
+	double y = BOX_H;
+	const double R = (BOX_DIAMETER/3.);
 	const double max_y = y+layers*regolith.properties.maxRadius*2;
 	while(y<max_y)
 	{
@@ -310,7 +325,7 @@ void ConePenetrationTest::addGrains(int layers, bool initial) {
 	      {
 	        startTransform.setOrigin(btVector3(x, y, z));
 	        auto body = regolith.createGrain(this, startTransform);
-	        body->setLinearVelocity(btVector3(vertical_vel_distribution(random_engine), initial?-y:-10, vertical_vel_distribution(random_engine)));
+	        body->setLinearVelocity(btVector3(vertical_vel_distribution(random_engine), -10, vertical_vel_distribution(random_engine)));
 	      }
 	    }
 	  }
