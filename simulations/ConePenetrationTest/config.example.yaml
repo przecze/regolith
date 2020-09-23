@@ -24,8 +24,8 @@ regolith:
   rollingFriction: 1.
 
   # radii in m
-  maxRadius: 0.04
-  minRadius: 0.04
+  maxRadius: 0.08
+  minRadius: 0.02
 
   # Below values in kg/m^3
 

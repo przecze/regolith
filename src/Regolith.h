@@ -23,8 +23,13 @@ RegolithProperties load_properties_from_file(std::string filename);
 class Regolith {
   public:
   btRigidBody* createGrain(CommonRigidBodyBase* base, btTransform& transform);
+  btRigidBody* createGrain(CommonRigidBodyBase* base, btTransform& transform, double r);
+  btRigidBody* createGrainFromIndex(CommonRigidBodyBase* base,
+                                    btTransform& transform,
+                                    int index);
   const RegolithProperties properties;
   Regolith(RegolithProperties, unsigned int shapesCount = 10);
+  std::vector<double> grainRadii;
   private:
   std::vector<btCollisionShape*> collisionShapes;
   std::vector<btScalar> grainMasses;
