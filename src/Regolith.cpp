@@ -38,21 +38,20 @@ Regolith::Regolith(RegolithProperties properties, unsigned int shapesCount):
     auto radius = utils::sizeInverseDistribution(i*1./(shapesCount-1),
                                                  properties.minRadius,
                                                  properties.maxRadius);
+    grainRadii.push_back(radius);
     collisionShapes.push_back(new btSphereShape(radius));
     const auto mass = 4./3. * std::pow(radius,3) * SIMD_PI * properties.materialDensity;
     grainMasses.push_back(mass);
   }
 }
 
-btRigidBody* Regolith::createGrain(CommonRigidBodyBase* bodyBase, btTransform& transform) {
-  // select shape randomly
-  auto random_engine = std::mt19937{std::random_device{}()};
-  auto uniform_distribution = std::uniform_int_distribution<int>{0, int(collisionShapes.size())-1};
-  int selection = uniform_distribution(random_engine);
-  const auto shape = collisionShapes[selection];
+btRigidBody* Regolith::createGrainFromIndex(CommonRigidBodyBase* bodyBase,
+                                            btTransform& transform,
+                                            int index) {
+  const auto shape = collisionShapes[index];
 
   // create and configure body
-  auto body = bodyBase->createRigidBody(grainMasses[selection],
+  auto body = bodyBase->createRigidBody(grainMasses[index],
                                         transform,
                                         shape,
                                         btVector4(0,0,1,1));
@@ -60,4 +59,23 @@ btRigidBody* Regolith::createGrain(CommonRigidBodyBase* bodyBase, btTransform& t
   body->setRestitution(properties.restitution);
   body->setRollingFriction(properties.rollingFriction);
   return body;
+}
+
+btRigidBody* Regolith::createGrain(CommonRigidBodyBase* bodyBase,
+                                   btTransform& transform,
+                                   double r) {
+  // select shape randomly
+  auto random_engine = std::mt19937{std::random_device{}()};
+  auto uniform_distribution = std::uniform_int_distribution<int>{0, int(collisionShapes.size())-1};
+  int selection = uniform_distribution(random_engine);
+  return createGrainFromIndex(bodyBase, transform, selection);
+}
+
+btRigidBody* Regolith::createGrain(CommonRigidBodyBase* bodyBase,
+                                   btTransform& transform) {
+  // select shape randomly
+  auto random_engine = std::mt19937{std::random_device{}()};
+  auto uniform_distribution = std::uniform_int_distribution<int>{0, int(collisionShapes.size())-1};
+  int selection = uniform_distribution(random_engine);
+  return createGrainFromIndex(bodyBase, transform, selection);
 }

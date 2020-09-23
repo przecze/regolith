@@ -26,6 +26,7 @@ subject to the following restrictions:
 #include <iostream>
 #include <chrono>
 #include <random>
+#include <algorithm>
 
 namespace {
 
@@ -263,19 +264,30 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 }
 
 void ConePenetrationTest::addInitialGrains() {
+
+  auto sizes_count = regolith.grainRadii.size();
+  double p[sizes_count];
+  std::fill_n(p, sizes_count, 1./sizes_count);
+  double* r = &regolith.grainRadii[0];
+	PG::NG* ng = new PG::GeneralNG(r,
+                                 p,
+                                 sizes_count);
+
+	//PG::NG* ng = new PG::UniformNG(0.9*regolith.minRadius,
+  //                               0.9*regolith.maxRadius);
+	PG::Grid3d dom;
 	PG::Container* container = new PG::Cylinder({0.0, 0.0, 0.0},
                                               {0.0, BOX_H, 0.0},
                                               BOX_DIAMETER/2);
-	PG::NG* ng = new PG::UniformNG(regolith.properties.minRadius*0.9,
-                                 regolith.properties.maxRadius*0.9);
-	PG::Grid3d dom;
+
 	PG::SpherePack* pack = new PG::SpherePack();
 	PG::SpherePackStat result = PG::GenerateSpherePack(container, ng, &dom, pack);
-	btTransform transform;
+
 	for(auto s: pack->s) {
+    btTransform transform;
 		transform.setIdentity();
 		transform.setOrigin(btVector3(s.x, s.y, s.z));
-		grains.push_back(regolith.createGrain(this, transform));
+		grains.push_back(regolith.createGrain(this, transform, s.r));
 	}
 }
 
