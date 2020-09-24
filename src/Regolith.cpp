@@ -9,6 +9,7 @@
 
 #include <random>
 #include <iostream>
+#include <stdexcept>
 
 RegolithProperties load_properties_from_yaml(const YAML::Node& config) {
   RegolithProperties properties;
@@ -64,11 +65,13 @@ btRigidBody* Regolith::createGrainFromIndex(CommonRigidBodyBase* bodyBase,
 btRigidBody* Regolith::createGrain(CommonRigidBodyBase* bodyBase,
                                    btTransform& transform,
                                    double r) {
-  // select shape randomly
-  auto random_engine = std::mt19937{std::random_device{}()};
-  auto uniform_distribution = std::uniform_int_distribution<int>{0, int(collisionShapes.size())-1};
-  int selection = uniform_distribution(random_engine);
-  return createGrainFromIndex(bodyBase, transform, selection);
+  for(int i = 0; i < grainRadii.size(); ++i) {
+		double known_r = grainRadii[i];
+		if(abs(r - known_r) < (0.0001 * properties.minRadius)) {
+			return createGrainFromIndex(bodyBase, transform, i);
+		}
+  }
+	throw std::invalid_argument("Value of r not found in known regolith collision shapes");
 }
 
 btRigidBody* Regolith::createGrain(CommonRigidBodyBase* bodyBase,

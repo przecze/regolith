@@ -59,7 +59,8 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 		  probeRadius(config["probe"]["radius"].as<double>()),
 		  pressure(config["pressure"]["value"].as<double>()),
 		  pressurePlateThickness(config["pressure"]["plate_thickness"].as<double>()),
-		  update_time(config["simulation"]["update_time"].as<double>())
+		  update_time(config["simulation"]["update_time"].as<double>()),
+		  dt(1./(config["simulation"]["updates_per_second"].as<double>()))
 	{
 	}
 
@@ -69,7 +70,7 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 	const double probeRadius; // m
 	const double pressure; // Pa
 	const double pressurePlateThickness; // m
-	btScalar dt = 1/60.; // s
+	double dt; // s (not const because is later rescaled)
 	double update_time; // s
 
 	virtual ~ConePenetrationTest() {}
