@@ -172,7 +172,7 @@ void ConePenetrationTest::stepStabilizationPhase()
 	resetVelocities();
 	if(removed == 0) {
 	  phase=PRESSURE_PHASE;
-	  rescaleTime(4.);
+	  //rescaleTime(4.);
 	  std::cout<<"Entering PRESSURE_PHASE"<<std::endl;
 	  createPressurePlate();
 	}
@@ -208,6 +208,7 @@ void ConePenetrationTest::stepPressurePhase()
 		auto expectedMeasuredResistance = expectedResistance/correctionFactor;
 		std::cout<<"correctionFactor: "<<correctionFactor<<std::endl;
 		std::cout<<"expected resistance to be measured: "<<expectedResistance<<std::endl;
+		update_time = config["simulation"]["penetration"]["update_time"].as<double>();
 	}
 }
 
@@ -215,17 +216,11 @@ void ConePenetrationTest::stepPenetrationPhase(int steps_since_last_update) {
 	// calculate change in momentum
 	auto v_0 = probe->getLinearVelocity();
 	auto mass = 1./probe->getInvMass();
-	auto momentumChange = (btVector3(0., probeVelocity, 0.) - v_0).getY()*mass;
-
-	// some of the momentum change is caused by gravity
-	// we have to calculate and substract it to obtain momentum change
-	// caused by grains resistance
-	auto gravityMomentumChange = m_dynamicsWorld->getGravity().getY()*mass*steps_since_last_update*dt;
-	momentumChange -= gravityMomentumChange;
+	auto momentumChange = (v_0 - btVector3(0., probeVelocity, 0.)).getY()*mass;
 
 	auto resistanceForce = (momentumChange)/(steps_since_last_update*dt);
 	auto resistance = resistanceForce / (probeRadius*probeRadius*SIMD_PI);
-	std::cout<<resistance<<std::endl;
+	std::cout<<"Resistance in Pa: "<<resistance<<std::endl;
 
 	// correct probe velocity and position
 	probe->setLinearVelocity(btVector3(0.,probeVelocity,0.));
@@ -285,7 +280,7 @@ void ConePenetrationTest::addInitialGrains() {
 	PG::SpherePackStat result = PG::GenerateSpherePack(container, ng, &dom, pack);
 
 	for(auto s: pack->s) {
-    btTransform transform;
+		btTransform transform;
 		transform.setIdentity();
 		transform.setOrigin(btVector3(s.x, s.y, s.z));
 		grains.push_back(regolith.createGrain(this, transform, s.r));
@@ -342,6 +337,9 @@ void ConePenetrationTest::createProbe() {
 	probe = createRigidBody(probeMass, probeTransform, probeShape);
 	probe->setLinearVelocity(btVector3{0., probeVelocity, 0.});
 	probe->setIgnoreCollisionCheck(pressurePlate, true);
+	// exclude probe from gravity
+	probe->setGravity(btVector3{0.,0.,0.});
+
 	m_guiHelper->autogenerateGraphicsObjects(m_dynamicsWorld);
 }
 
@@ -350,7 +348,7 @@ void ConePenetrationTest::createPressurePlate() {
 	auto pressurePlateShape = new btCylinderShape{btVector3{BOX_DIAMETER/2. - margin, pressurePlateThickness, BOX_DIAMETER/2. - margin}};
 	auto plateTransform = btTransform{};
 	plateTransform.setIdentity();
-	plateTransform.setOrigin(btVector3(0., BOX_H + pressurePlateThickness + 2*regolith.properties.maxRadius , 0.));
+	plateTransform.setOrigin(btVector3(0., BOX_H + pressurePlateThickness/2. + 2*regolith.properties.maxRadius , 0.));
 	m_collisionShapes.push_back(pressurePlateShape);
 	auto plateMass = pressure*(BOX_DIAMETER/2.1*BOX_DIAMETER/2.1*SIMD_PI)/(-m_dynamicsWorld->getGravity().getY());
 	std::cout<<"plate mass: "<<plateMass<<std::endl;
