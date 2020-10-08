@@ -17,8 +17,8 @@ subject to the following restrictions:
 #define ARRAY_SIZE_X 6
 #define ARRAY_SIZE_Z 6
 
-constexpr double BOX_W = 0.4;
-constexpr double BOX_H = 0.2;
+double BOX_R = 0.4;
+double BOX_H = 0.2;
 
 #include "Regolith.h"
 
@@ -27,27 +27,18 @@ constexpr double BOX_H = 0.2;
 
 #include "CommonInterfaces/CommonRigidBodyBase.h"
 
+#include "packgen/gen_pack.h"
+
 #include <iostream>
 #include <chrono>
 #include <random>
 
-auto regolith = []{
-  auto properties = RegolithProperties{};
-  properties.maxRadius = 0.04; // m
-  properties.minRadius = 0.04; // m
-  properties.restitution = 0.1;
-  properties.friction = 0.35;
-  properties.rollingFriction = 1.;
-  properties.materialDensity = 2.68 * 997; // kg / m^3
-  properties.maxDensity = 1667; // kg / m^3
-  properties.minDensity = 1364; // kg / m^3
-  return Regolith{properties, 10};
-}();
-
 struct ResponseAngle : public CommonRigidBodyBase
 {
-	ResponseAngle(struct GUIHelperInterface* helper)
-		: CommonRigidBodyBase(helper)
+	ResponseAngle(struct GUIHelperInterface* helper,
+			          RegolithProperties regolith_properties)
+		: CommonRigidBodyBase(helper),
+			regolith(regolith_properties, 10)
 	{
 	}
 	virtual ~ResponseAngle() {}
@@ -62,10 +53,13 @@ struct ResponseAngle : public CommonRigidBodyBase
 		float targetPos[3] = {0, 0, 0};
 		m_guiHelper->resetCamera(dist, yaw, pitch, targetPos[0], targetPos[1], targetPos[2]);
 	}
+	Regolith regolith;
 };
 
 void ResponseAngle::initPhysics()
 {
+	BOX_H = regolith.properties.maxRadius * 20;
+	BOX_R = BOX_H;
 	m_guiHelper->setUpAxis(1);
 
 	createEmptyDynamicsWorld();
@@ -76,7 +70,7 @@ void ResponseAngle::initPhysics()
 		m_dynamicsWorld->getDebugDrawer()->setDebugMode(btIDebugDraw::DBG_DrawWireframe + btIDebugDraw::DBG_DrawContactPoints);
 
 	///create a few basic rigid bodies
-	btCollisionShape* groundShape = new btCylinderShape(btVector3(btScalar(1.*BOX_W), btScalar(BOX_H/2), 1.*BOX_W));
+	btCollisionShape* groundShape = new btCylinderShape(btVector3(btScalar(1.*BOX_R), btScalar(BOX_H/2), 1.*BOX_R));
 
 	//groundShape->initializePolyhedralFeatures();
 	//btCollisionShape* groundShape = new btStaticPlaneShape(btVector3(0,1,0),50);
@@ -86,12 +80,34 @@ void ResponseAngle::initPhysics()
 	btTransform groundTransform;
 	groundTransform.setIdentity();
 	groundTransform.setOrigin(btVector3(0, -BOX_H/2, 0));
-  auto ground = createRigidBody(0., groundTransform, groundShape, btVector4(0, 0, 1, 1));
-  ground->setRestitution(0.);
-  ground->setFriction(1);
+	auto ground = createRigidBody(0., groundTransform, groundShape, btVector4(0, 0, 1, 1));
+	ground->setRestitution(0.);
+	ground->setFriction(1);
+
+	auto sizes_count = regolith.grainRadii.size();
+	double p[sizes_count];
+	std::fill_n(p, sizes_count, 1./sizes_count);
+	double* r = &regolith.grainRadii[0];
+	PG::NG* ng = new PG::GeneralNG(r,
+	                               p,
+	                               sizes_count);
+	PG::Grid3d dom;
+	PG::Container* container = new PG::Cylinder({0.0, 0.0, 0.0},
+																							{0.0, BOX_H, 0.0},
+																							BOX_R);
+
+	PG::SpherePack* pack = new PG::SpherePack();
+	PG::SpherePackStat result = PG::GenerateSpherePack(container, ng, &dom, pack);
+
+	for(auto s: pack->s) {
+		btTransform transform;
+		transform.setIdentity();
+		transform.setOrigin(btVector3(s.x, s.y, s.z));
+		regolith.createGrain(this, transform, s.r);
+	}
 
   // TODO : is it required for sth?
-	//m_guiHelper->autogenerateGraphicsObjects(m_dynamicsWorld);
+	m_guiHelper->autogenerateGraphicsObjects(m_dynamicsWorld);
   //for(auto shape : regolithProperties.collisionShapes) {
   //  m_collisionShapes.push_back(shape);
   //}
@@ -110,72 +126,25 @@ void ResponseAngle::stepSimulation(float deltaTime)
   static int grains_count = 0;
   static bool stop_adding = false;
 
-  ++count;
-  if (count % update_steps == 0) {
-    count = 0;
-    if(not stop_adding) {
-
-      btTransform startTransform;
-      startTransform.setIdentity();
-
-      auto random_engine = std::mt19937{std::random_device{}()};
-      auto vertical_vel_distribution = std::uniform_real_distribution<btScalar>{-0.1, 0.1};
-      auto uniform_distribution = std::uniform_int_distribution<int>{0, 1};
-      for (int k = 0; k < layers_per_update; k++)
-      {
-        for (int i = 0; i < ARRAY_SIZE_X; i++)
-        {
-          for (int j = 0; j < ARRAY_SIZE_Z; j++)
-          {
-            startTransform.setOrigin(btVector3(
-              btScalar(-BOX_W/2. + (BOX_W)/(ARRAY_SIZE_X-1) * i),
-              btScalar(2*BOX_H + (1. + k) * 2. * regolith.properties.maxRadius),
-              btScalar(-BOX_W/2. + (BOX_W)/(ARRAY_SIZE_Z-1) * j)));
-
-            auto body = regolith.createGrain(this, startTransform);
-
-            //TODO: I think I wanted to add inertia here? But createGrain interface won't handle it
-            //auto body = regolith.createGrain(this, btVector4(0,0,1,1), btVector3(0,-1.,0));
-
-
-            body->setLinearVelocity(btVector3(vertical_vel_distribution(random_engine), -1., vertical_vel_distribution(random_engine)));
-          }
-        }
-      }
-      auto currrent_count = m_dynamicsWorld->getNumCollisionObjects();
-      if(currrent_count + 10 < grains_count) {
-        stop_adding = true;
-      } else {
-        grains_count = currrent_count;
-      }
-      std::cout<<"ADDED: "<<m_dynamicsWorld->getNumCollisionObjects()<<std::endl;
-      for(auto i = m_dynamicsWorld->getNumCollisionObjects()-1; i>=0; --i) {
-        auto body = m_dynamicsWorld->getCollisionObjectArray()[i];
-        if(body->getWorldTransform().getOrigin().getY() < - (BOX_H/2. + 0.01)) {
-          m_dynamicsWorld->removeRigidBody(btRigidBody::upcast(body));
-        }
-         
-      }
-
-      std::cout<<"REMOVED: "<<m_dynamicsWorld->getNumCollisionObjects()<<std::endl;
-      m_guiHelper->autogenerateGraphicsObjects(m_dynamicsWorld);
-    } else {
-      for(auto i = m_dynamicsWorld->getNumCollisionObjects()-1; i>=0; --i) {
-        auto body = m_dynamicsWorld->getCollisionObjectArray()[i];
-        if(body->getWorldTransform().getOrigin().getY() < - (BOX_H/2. + 0.01)) {
-          m_dynamicsWorld->removeRigidBody(btRigidBody::upcast(body));
-        }
-         
-      }
-      double max_y = 0.;
-      for(auto i = m_dynamicsWorld->getNumCollisionObjects()-1; i>=0; --i) {
-        auto body = m_dynamicsWorld->getCollisionObjectArray()[i];
-        max_y = std::max(max_y, double(body->getWorldTransform().getOrigin().getY()));
-      }
-      std::cout<<"max_y = "<<max_y<<std::endl;
-    }
-
-  }
+	++count;
+	if (count % update_steps == 0) {
+		count = 0;
+		for(auto i = m_dynamicsWorld->getNumCollisionObjects()-1; i>=0; --i) {
+			auto body = m_dynamicsWorld->getCollisionObjectArray()[i];
+			if(body->getWorldTransform().getOrigin().getY() < - (BOX_H/2. + 0.01)) {
+				m_dynamicsWorld->removeRigidBody(btRigidBody::upcast(body));
+				const double transparent[4] = {0.,0.,0.,0.};
+				m_guiHelper->changeRGBAColor(btRigidBody::upcast(body)->getUserIndex(), transparent);
+			}
+		}
+		double max_y = 0.;
+		for(auto i = m_dynamicsWorld->getNumCollisionObjects()-1; i>=0; --i) {
+			auto body = m_dynamicsWorld->getCollisionObjectArray()[i];
+			max_y = std::max(max_y, double(body->getWorldTransform().getOrigin().getY()));
+		}
+		std::cout<<"h = "<<max_y<<std::endl;
+		std::cout<<"h/r = "<<max_y/2./BOX_R<<std::endl;
+	}
   if(m_dynamicsWorld) {
     m_dynamicsWorld->stepSimulation(deltaTime);
   }
@@ -183,7 +152,18 @@ void ResponseAngle::stepSimulation(float deltaTime)
 
 CommonExampleInterface* CreateFunc(CommonExampleOptions& options)
 {
-	return new ResponseAngle(options.m_guiHelper);
+	auto config = YAML::LoadFile("config.yaml");
+	auto properties = [&config]{
+		try {
+			std::cout<<"Regolith configuration found in config.yaml"<<std::endl;
+			return load_properties_from_yaml(config["regolith"]);
+		}
+		catch(YAML::InvalidNode) {
+			std::cout<<"No regolith configuration found in config.yaml. "
+								 "Loading regolith.yaml"<<std::endl;
+			return load_properties_from_file("regolith.yaml");
+		}}();
+	return new ResponseAngle(options.m_guiHelper, properties);
 }
 
 B3_STANDALONE_EXAMPLE(CreateFunc)
