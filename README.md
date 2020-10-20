@@ -1,6 +1,9 @@
 # The regolith project
 Exploring Bullet Physics as a tool to simulate behavior of regolith and granular soils.  
 ![cpt_picture](cpt_example.png)
+Currently it allows to show qualitative dependence between resistance and
+external pressure during Cone Penetration Testing
+![cpt_picture](plot_example.png)
 
 ## Note about requirements and build steps
 Complete set-up and build instructions for Ubuntu 20.04 are provided in [the Dockerfile](Dockerfile).
