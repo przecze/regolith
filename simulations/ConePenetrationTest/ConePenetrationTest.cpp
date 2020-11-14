@@ -31,14 +31,17 @@ subject to the following restrictions:
 namespace {
 
 double correction_factor_old(double Dr, double Rd) {
-	// I think I read somewhere that this version can be used for BC3.
-	// But the values are really small (E-6)
-	// This is CF BC1 formula from Butlanska et. al 2011 (Cone Penetration Tests in Virtual Chamber)
-	// But with -b instead of b in the exponent (which was supposed to work in BC3 case, I don't remember where I read it)
+	// Left because values are really small
+	//
+	// But with -b instead of b in the exponent - which was supposed to work in BC3 case, according to:
+	// Jamiolkowski et al, 2003,
+	// Evaluation of Relative Density and Shear Strength of Sands from CPT and DMT
 	auto a = 9*0.00001*std::pow(Rd, 2.02);
 	auto b = -0.565*std::log(Rd)+2.59;
+	// TODO: Verify if "100*" should be here
 	return a*std::pow(100*Dr, -b);
 }
+
 double correction_factor(double Dr, double Rd) {
 	// Mayne & Kulhawy 1991
 	// As given in Butlanska et al. 2010 (Size effects on a virtual calibration chamber)
@@ -74,9 +77,10 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 	double update_time; // s
 
 	virtual ~ConePenetrationTest() {}
-	virtual void initPhysics();
-	virtual void renderScene();
-	virtual void stepSimulation(float deltaTime);
+	void createEmptyDynamicsWorld() override;
+	void initPhysics() override;
+	void renderScene() override;
+	void stepSimulation(float deltaTime) override;
 	void resetCamera()
 	{
 		float dist = 4;
@@ -120,6 +124,31 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 	YAML::Node config;
 	std::vector<btRigidBody*> grains;
 };
+
+void ConePenetrationTest::createEmptyDynamicsWorld() {
+	///collision configuration contains default setup for memory, collision setup
+	m_collisionConfiguration = new btDefaultCollisionConfiguration();
+	//m_collisionConfiguration->setConvexConvexMultipointIterations();
+
+	///use the default collision dispatcher. For parallel processing you can use a diffent dispatcher (see Extras/BulletMultiThreaded)
+	m_dispatcher = new btCollisionDispatcher(m_collisionConfiguration);
+
+	if (config["simulation"]["broadphase"].as<std::string>() == "axis") {
+		std::cout<<"Using axis sweep broadphase"<<std::endl;
+		m_broadphase = new btAxisSweep3(btVector3(-BOX_DIAMETER, -BOX_H/3., -BOX_DIAMETER),
+		                                btVector3(BOX_DIAMETER, BOX_H, BOX_DIAMETER));
+	} else {
+		m_broadphase = new btDbvtBroadphase();
+	}
+
+	///the default constraint solver. For parallel processing you can use a different solver (see Extras/BulletMultiThreaded)
+	btSequentialImpulseConstraintSolver* sol = new btSequentialImpulseConstraintSolver;
+	m_solver = sol;
+
+	m_dynamicsWorld = new btDiscreteDynamicsWorld(m_dispatcher, m_broadphase, m_solver, m_collisionConfiguration);
+
+	m_dynamicsWorld->setGravity(btVector3(0, -10, 0));
+}
 
 void ConePenetrationTest::initPhysics()
 {
@@ -202,11 +231,13 @@ void ConePenetrationTest::stepPressurePhase()
 		std::cout<<"\% of volume used: "<<grains_volume/V*100.<<std::endl;
 		auto relativeDensity = ((grains_mass/V)-regolith.properties.minDensity)/(regolith.properties.maxDensity - regolith.properties.minDensity);
 		std::cout<<"relative density: "<<relativeDensity<<std::endl;
-		correctionFactor = correction_factor(relativeDensity, BOX_DIAMETER/2./probeRadius);
+		auto Rd = BOX_DIAMETER/2./probeRadius;
+		correctionFactor = correction_factor(relativeDensity, Rd);
 		constexpr double p0 = 1000*100;
 		auto expectedResistance = 23.19*p0*std::pow(pressure/p0, 0.56)*std::exp(2.97*relativeDensity);
 		auto expectedMeasuredResistance = expectedResistance/correctionFactor;
 		std::cout<<"correctionFactor: "<<correctionFactor<<std::endl;
+		//std::cout<<"correctionFactorold: "<<correction_factor_old(relativeDensity, Rd)<<std::endl;
 		std::cout<<"expected resistance to be measured: "<<expectedResistance<<std::endl;
 		update_time = config["simulation"]["penetration"]["update_time"].as<double>();
 	}
@@ -220,7 +251,7 @@ void ConePenetrationTest::stepPenetrationPhase(int steps_since_last_update) {
 
 	auto resistanceForce = (momentumChange)/(steps_since_last_update*dt);
 	auto resistance = resistanceForce / (probeRadius*probeRadius*SIMD_PI);
-	std::cout<<"Resistance in Pa: "<<resistance<<std::endl;
+	std::cout<<probe->getWorldTransform().getOrigin().getY()<<" "<<resistance<<std::endl;
 
 	// correct probe velocity and position
 	probe->setLinearVelocity(btVector3(0.,probeVelocity,0.));

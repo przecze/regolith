@@ -5,6 +5,7 @@ simulation:
     layers_per_update: 2
   penetration:
     update_time: 0.05
+  broadphase: "axis"
 
 box:
   diameter: 1.2
