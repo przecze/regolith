@@ -3,10 +3,7 @@ RUN apt update && DEBIAN_FRONTEND="noninteractive" apt install -y cmake git buil
 
 # Install bullet3
 WORKDIR /third_party
-# note: once tag 2.90 is available it will be safer to use
-# 2.89 cannot be used because it doesn't include CommonInterfaces in installed files
-# RUN git clone --depth 1 --branch 2.90 --single-branch 
-RUN git clone --depth 1 --branch master --single-branch https://github.com/bulletphysics/bullet3.git
+RUN git clone --depth 1 --branch 3.06 --single-branch https://github.com/bulletphysics/bullet3.git
 WORKDIR /third_party/bullet3/cmake_build
 RUN cmake ..
 RUN make -j4 install
