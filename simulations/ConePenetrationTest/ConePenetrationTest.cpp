@@ -20,6 +20,9 @@ subject to the following restrictions:
 #include "LinearMath/btVector3.h"
 #include "LinearMath/btAlignedObjectArray.h"
 #include "CommonInterfaces/CommonRigidBodyBase.h"
+#include "BulletCollision/CollisionDispatch/btCollisionDispatcherMt.h"
+#include "BulletDynamics/Dynamics/btDiscreteDynamicsWorldMt.h"
+#include "BulletDynamics/ConstraintSolver/btSequentialImpulseConstraintSolverMt.h"
 
 #include "packgen/gen_pack.h"
 
@@ -66,6 +69,7 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 		  dt(1./(config["simulation"]["updates_per_second"].as<double>()))
 	{
 	}
+	btITaskScheduler* m_taskScheduler;
 
 	const double BOX_DIAMETER; // m
 	const double BOX_H; // m
@@ -126,12 +130,6 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 };
 
 void ConePenetrationTest::createEmptyDynamicsWorld() {
-	///collision configuration contains default setup for memory, collision setup
-	m_collisionConfiguration = new btDefaultCollisionConfiguration();
-	//m_collisionConfiguration->setConvexConvexMultipointIterations();
-
-	///use the default collision dispatcher. For parallel processing you can use a diffent dispatcher (see Extras/BulletMultiThreaded)
-	m_dispatcher = new btCollisionDispatcher(m_collisionConfiguration);
 
 	if (config["simulation"]["broadphase"].as<std::string>() == "axis") {
 		std::cout<<"Using axis sweep broadphase"<<std::endl;
@@ -141,11 +139,40 @@ void ConePenetrationTest::createEmptyDynamicsWorld() {
 		m_broadphase = new btDbvtBroadphase();
 	}
 
-	///the default constraint solver. For parallel processing you can use a different solver (see Extras/BulletMultiThreaded)
-	btSequentialImpulseConstraintSolver* sol = new btSequentialImpulseConstraintSolver;
-	m_solver = sol;
+	if (config["simulation"]["threads"].as<int>() > 1) {
+		std::cout<<"multithread"<<std::endl;
+		m_taskScheduler = btCreateDefaultTaskScheduler();
+		btSetTaskScheduler(m_taskScheduler);
 
-	m_dynamicsWorld = new btDiscreteDynamicsWorld(m_dispatcher, m_broadphase, m_solver, m_collisionConfiguration);
+		btDefaultCollisionConstructionInfo cci;
+		cci.m_defaultMaxPersistentManifoldPoolSize = 80000;
+		cci.m_defaultMaxCollisionAlgorithmPoolSize = 80000;
+		m_collisionConfiguration = new btDefaultCollisionConfiguration(cci);
+		m_dispatcher = new btCollisionDispatcherMt(m_collisionConfiguration, 40);
+
+		btConstraintSolverPoolMt* solverPool;
+		{
+			btConstraintSolver* solvers[BT_MAX_THREAD_COUNT];
+			int maxThreadCount = config["simulation"]["threads"].as<int>();
+			std::cout<<"Thread count "<<maxThreadCount<<std::endl;
+			for (int i = 0; i < maxThreadCount; ++i)
+			{
+				solvers[i] = new btSequentialImpulseConstraintSolver();
+			}
+			solverPool = new btConstraintSolverPoolMt(solvers, maxThreadCount);
+			m_solver = solverPool;
+			btGetTaskScheduler()->setNumThreads(maxThreadCount);
+		}
+		auto solverMt = new btSequentialImpulseConstraintSolverMt();
+		m_dynamicsWorld = new btDiscreteDynamicsWorldMt(m_dispatcher, m_broadphase, solverPool, solverMt, m_collisionConfiguration);
+	} else {
+		std::cout<<"single thread"<<std::endl;
+		m_collisionConfiguration = new btDefaultCollisionConfiguration();
+		m_dispatcher = new btCollisionDispatcher(m_collisionConfiguration);
+		btSequentialImpulseConstraintSolver* sol = new btSequentialImpulseConstraintSolver;
+		m_solver = sol;
+		m_dynamicsWorld = new btDiscreteDynamicsWorld(m_dispatcher, m_broadphase, m_solver, m_collisionConfiguration);
+	}
 
 	m_dynamicsWorld->setGravity(btVector3(0, -10, 0));
 }

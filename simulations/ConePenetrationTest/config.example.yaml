@@ -6,6 +6,7 @@ simulation:
   penetration:
     update_time: 0.05
   broadphase: "axis"
+  threads: 8
 
 box:
   diameter: 1.2
