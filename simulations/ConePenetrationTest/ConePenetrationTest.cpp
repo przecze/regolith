@@ -13,6 +13,7 @@ subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
+#include "profiled.h"
 #include "utils.h"
 #include "Regolith.h"
 
@@ -21,6 +22,7 @@ subject to the following restrictions:
 #include "LinearMath/btAlignedObjectArray.h"
 #include "CommonInterfaces/CommonRigidBodyBase.h"
 #include "BulletCollision/CollisionDispatch/btCollisionDispatcherMt.h"
+#include "BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
 #include "BulletDynamics/Dynamics/btDiscreteDynamicsWorldMt.h"
 #include "BulletDynamics/ConstraintSolver/btSequentialImpulseConstraintSolverMt.h"
 
@@ -133,10 +135,10 @@ void ConePenetrationTest::createEmptyDynamicsWorld() {
 
 	if (config["simulation"]["broadphase"].as<std::string>() == "axis") {
 		std::cout<<"Using axis sweep broadphase"<<std::endl;
-		m_broadphase = new btAxisSweep3(btVector3(-BOX_DIAMETER, -BOX_H/3., -BOX_DIAMETER),
+		m_broadphase = new profiled::AxisSweep(btVector3(-BOX_DIAMETER, -BOX_H/3., -BOX_DIAMETER),
 		                                btVector3(BOX_DIAMETER, BOX_H, BOX_DIAMETER));
 	} else {
-		m_broadphase = new btDbvtBroadphase();
+		m_broadphase = new profiled::Dbvt();
 	}
 
 	if (config["simulation"]["threads"].as<int>() > 1) {
@@ -148,7 +150,7 @@ void ConePenetrationTest::createEmptyDynamicsWorld() {
 		cci.m_defaultMaxPersistentManifoldPoolSize = 80000;
 		cci.m_defaultMaxCollisionAlgorithmPoolSize = 80000;
 		m_collisionConfiguration = new btDefaultCollisionConfiguration(cci);
-		m_dispatcher = new btCollisionDispatcherMt(m_collisionConfiguration, 40);
+		m_dispatcher = new profiled::CollisionDispatcherMt(m_collisionConfiguration, 40);
 
 		btConstraintSolverPoolMt* solverPool;
 		{
@@ -163,15 +165,18 @@ void ConePenetrationTest::createEmptyDynamicsWorld() {
 			m_solver = solverPool;
 			btGetTaskScheduler()->setNumThreads(maxThreadCount);
 		}
-		auto solverMt = new btSequentialImpulseConstraintSolverMt();
-		m_dynamicsWorld = new btDiscreteDynamicsWorldMt(m_dispatcher, m_broadphase, solverPool, solverMt, m_collisionConfiguration);
+		auto solverMt = new profiled::SolverMt();
+		m_dynamicsWorld = new profiled::WorldMt(m_dispatcher, m_broadphase, solverPool, solverMt, m_collisionConfiguration);
+		//m_dynamicsWorld->setInternalTickCallback(utils::profileBeginCallback, NULL, true);
+		//m_dynamicsWorld->setInternalTickCallback(utils::profileEndCallback, NULL, false);
 	} else {
 		std::cout<<"single thread"<<std::endl;
 		m_collisionConfiguration = new btDefaultCollisionConfiguration();
 		m_dispatcher = new btCollisionDispatcher(m_collisionConfiguration);
 		btSequentialImpulseConstraintSolver* sol = new btSequentialImpulseConstraintSolver;
 		m_solver = sol;
-		m_dynamicsWorld = new btDiscreteDynamicsWorld(m_dispatcher, m_broadphase, m_solver, m_collisionConfiguration);
+		m_dynamicsWorld = new profiled::World(m_dispatcher, m_broadphase, m_solver,
+		                                      m_collisionConfiguration);
 	}
 
 	m_dynamicsWorld->setGravity(btVector3(0, -10, 0));
@@ -293,13 +298,17 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 	static int steps_since_last_update = 0;
 	static int grains_count = 0;
 	{
+		//CProfileManager::Start_Profile("World step");
 		auto numSteps = m_dynamicsWorld->stepSimulation(deltaTime, 1, dt);
  		// note: maxSubSteps = 1 is passed implicitly here as default argument.
  		// Therefore we will do only one step (1/60 s) not the whole deltaTime
  		// ( = 0.1 s in gui demos)
 		steps_since_last_update += numSteps;
+		//CProfileManager::Stop_Profile();
+		CProfileManager::dumpAll();
 	}
 	if(steps_since_last_update*dt > update_time) {
+		CProfileManager::Start_Profile("Additional logic");
 		auto current = steady_clock::now();
 		auto elapsed = current - last;
 		last = current;
@@ -313,6 +322,8 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 		} else if (phase == FINISHED_PHASE) {
 		}
 		steps_since_last_update = 0;
+		CProfileManager::Stop_Profile();
+		CProfileManager::dumpAll();
 	}
 
 }

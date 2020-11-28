@@ -5,8 +5,10 @@ RUN apt update && DEBIAN_FRONTEND="noninteractive" apt install -y cmake git buil
 WORKDIR /third_party
 RUN git clone --depth 1 --branch 3.06 --single-branch https://github.com/bulletphysics/bullet3.git
 WORKDIR /third_party/bullet3/cmake_build
-RUN cmake ..
-RUN make -j4 install
+# Enable multithreading
+RUN cmake -DBULLET2_MULTITHREADING=on ..
+# Enable profiler
+RUN make -j4 CXX_FLAGS=-DBT_ENABLE_PROFILE install
 
 # Install yaml-cpp
 WORKDIR /third_party
