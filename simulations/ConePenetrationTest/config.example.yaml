@@ -1,12 +1,13 @@
 simulation:
   update_time: 1.
+  profile_level: 2,
   updates_per_second: 480
   filling:
     layers_per_update: 2
   penetration:
     update_time: 0.05
   broadphase: "axis"
-  threads: 8
+  threads: 1
 
 box:
   diameter: 1.2
@@ -16,21 +17,21 @@ box:
 probe:
   velocity: -.1
   radius: 0.07
-  mass: 10000.
+  mass: 1000.
 
 pressure:
-  value: 60000
+  value: 100000
   plate_thickness: 0.05
 
 regolith:
   # physics properties
-  restitution: 0.1
-  friction: 0.35
+  restitution: 0.01
+  friction: 0.99
   rollingFriction: 1.
 
   # radii in m
-  maxRadius: 0.05
-  minRadius: 0.05
+  maxRadius: 0.04
+  minRadius: 0.025
 
   # Below values in kg/m^3
 
