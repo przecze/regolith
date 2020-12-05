@@ -332,11 +332,11 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 		} else if (phase == FINISHED_PHASE) {
 		}
 		steps_since_last_update = 0;
-    if (profile_level > 0) {
-      CProfileManager::Stop_Profile();
-      CProfileManager::dumpAll();
-      CProfileManager::Reset();
-    }
+		if (profile_level > 0) {
+			CProfileManager::Stop_Profile();
+			CProfileManager::dumpAll();
+			CProfileManager::Reset();
+		}
 	}
 
 }
