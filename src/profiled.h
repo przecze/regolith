@@ -23,20 +23,13 @@ typename T::ParentClass* create(bool profiled, Args... args) {
 class ProfileZone
 {
 public:
-  const std::string m_name;
-  btClock m_clock;
-  ProfileZone(const char* name) : m_name(name), m_clock() {
+  ProfileZone(const char* name)
+  {
     CProfileManager::Start_Profile(name);
-    //std::cout<<"Start profile: "<<m_name<<std::endl;
   }
-  ~ProfileZone() {
+  ~ProfileZone()
+  {
     CProfileManager::Stop_Profile();
-    //std::cout<<"Stop profile: "<<m_name<<" "<<m_clock.getTimeMilliseconds()<<std::endl;
-    auto it = CProfileManager::Get_Iterator();
-    while(!it->Is_Done()) {
-      //std::cout<<it->Get_Current_Name()<<" "<<it->Get_Current_Total_Calls()<<std::endl;
-      it->Next();
-    }
   }
 };
 

@@ -27,6 +27,7 @@ subject to the following restrictions:
 #include "BulletDynamics/ConstraintSolver/btSequentialImpulseConstraintSolverMt.h"
 
 #include "packgen/gen_pack.h"
+#include "yaml-cpp/yaml.h"
 
 #include <iostream>
 #include <chrono>
@@ -68,7 +69,8 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 		  pressure(config["pressure"]["value"].as<double>()),
 		  pressurePlateThickness(config["pressure"]["plate_thickness"].as<double>()),
 		  update_time(config["simulation"]["update_time"].as<double>()),
-		  dt(1./(config["simulation"]["updates_per_second"].as<double>()))
+		  dt(1./(config["simulation"]["updates_per_second"].as<double>())),
+      profile_level(utils::try_get(config["simulation"]["profile_level"], 0u))
 	{
 	}
 	btITaskScheduler* m_taskScheduler;
@@ -81,6 +83,7 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 	const double pressurePlateThickness; // m
 	double dt; // s (not const because is later rescaled)
 	double update_time; // s
+	const unsigned profile_level;
 
 	virtual ~ConePenetrationTest() {}
 	void createEmptyDynamicsWorld() override;
@@ -132,13 +135,6 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 };
 
 void ConePenetrationTest::createEmptyDynamicsWorld() {
-	const unsigned profile_level = [this] {
-		if (auto node =	config["simulation"]["profile_level"]) {
-			return unsigned(node.as<int>());
-		} else {
-			return 0u;
-		}}();
-
   using namespace profiled;
 
 	if (config["simulation"]["broadphase"].as<std::string>() == "axis") {
@@ -187,7 +183,7 @@ void ConePenetrationTest::createEmptyDynamicsWorld() {
 		                                          m_collisionConfiguration);
 	}
 
-	if (profile_level > 1) {
+	if (profile_level > 0) {
 		m_dynamicsWorld->setInternalTickCallback(profileBeginCallback, NULL, true);
 		m_dynamicsWorld->setInternalTickCallback(profileEndCallback, NULL, false);
 	}
@@ -312,23 +308,17 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 	static auto last = steady_clock::now();
 	static int steps_since_last_update = 0;
 	static int grains_count = 0;
-  //CProfileManager::Start_Profile("external step");
-  //CProfileManager::Start_Profile("internal step");
-  //CProfileManager::Stop_Profile();
-  //CProfileManager::Stop_Profile();
-	//CProfileManager::dumpAll();
 	{
-		//CProfileManager::Start_Profile("World step");
 		auto numSteps = m_dynamicsWorld->stepSimulation(deltaTime, 1, dt);
  		// note: maxSubSteps = 1 is passed implicitly here as default argument.
  		// Therefore we will do only one step (1/60 s) not the whole deltaTime
  		// ( = 0.1 s in gui demos)
 		steps_since_last_update += numSteps;
-		//CProfileManager::Stop_Profile();
-		//CProfileManager::dumpAll();
 	}
 	if(steps_since_last_update*dt > update_time) {
-		CProfileManager::Start_Profile("Additional logic");
+		if (profile_level > 0) {
+			CProfileManager::Start_Profile("Additional logic");
+		}
 		auto current = steady_clock::now();
 		auto elapsed = current - last;
 		last = current;
@@ -342,9 +332,11 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 		} else if (phase == FINISHED_PHASE) {
 		}
 		steps_since_last_update = 0;
-		CProfileManager::Stop_Profile();
-		CProfileManager::dumpAll();
-		CProfileManager::Reset();
+    if (profile_level > 0) {
+      CProfileManager::Stop_Profile();
+      CProfileManager::dumpAll();
+      CProfileManager::Reset();
+    }
 	}
 
 }
