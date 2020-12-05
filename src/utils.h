@@ -1,6 +1,8 @@
 #include "btBulletDynamicsCommon.h"
 #include "LinearMath/btVector3.h"
 
+#include "yaml-cpp/yaml.h"
+
 namespace utils {
   btCompoundShape* BuildTowerCompoundShape(btVector3&& brickFullDimensions=
                                                                 btVector3(4.0,3.0,2.0),
@@ -12,5 +14,15 @@ namespace utils {
     assert(p >=0.);
     return maxRadius * std::exp( std::log(minRadius / maxRadius) * p);
   }
+
+  template<typename T>
+  T try_get(const YAML::Node& yaml_node, T default_value)
+  {
+    if (yaml_node) {
+      return yaml_node.as<T>();
+    }
+    return default_value;
+  }
+
 
 } // namespace utils
