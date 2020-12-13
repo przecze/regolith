@@ -25,6 +25,7 @@ subject to the following restrictions:
 #include "BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
 #include "BulletDynamics/Dynamics/btDiscreteDynamicsWorldMt.h"
 #include "BulletDynamics/ConstraintSolver/btSequentialImpulseConstraintSolverMt.h"
+#include "BulletCollision/BroadphaseCollision/btOverlappingPairCallback.h"
 
 #include "packgen/gen_pack.h"
 #include "yaml-cpp/yaml.h"
@@ -35,6 +36,27 @@ subject to the following restrictions:
 #include <algorithm>
 
 namespace {
+
+class OverlapReporter : public btOverlappingPairCallback {
+  std::vector<std::pair<btBroadphaseProxy*, btBroadphaseProxy*>> pairs;
+	btBroadphasePair* addOverlappingPair(btBroadphaseProxy* proxy0, btBroadphaseProxy* proxy1) override {
+		auto __profile = profiled::ProfileZone(__FUNCTION__);
+		pairs.push_back(std::make_pair(proxy0, proxy1));
+  }
+
+	void* removeOverlappingPair(btBroadphaseProxy* proxy0, btBroadphaseProxy* proxy1, btDispatcher* dispatcher) override {
+		auto __profile = profiled::ProfileZone(__FUNCTION__);
+		pairs.erase(std::remove_if(pairs.begin(), pairs.end(), [=](auto x) {return (proxy0 == x.first and proxy1 == x.second) or (proxy0 == x.first and proxy1 == x.second); }));
+	}
+
+	void removeOverlappingPairsContainingProxy(btBroadphaseProxy* proxy0, btDispatcher* dispatcher) override {
+		auto __profile = profiled::ProfileZone(__FUNCTION__);
+		std::cout<<"removing all pairs for proxy"<<std::endl;
+	}
+
+	public:
+	const auto& get_current_pairs() { return pairs; }
+};
 
 double correction_factor_old(double Dr, double Rd) {
 	// Left because values are really small
@@ -132,16 +154,25 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 	Regolith regolith;
 	YAML::Node config;
 	std::vector<btRigidBody*> grains;
+	OverlapReporter overlapReporter = OverlapReporter{};
 };
+
+// callback options:
+// world->setOverlappingPairUserCallback
+// world -> internal tick callback -> iterate over dispatcher manifolds (https://gamedev.stackexchange.com/a/120881/129669)
+// gContactAddedCallback https://www.youtube.com/watch?v=YweNArzAHs4, also bullet3/examples/SharedMemory/PhysicsServerCommandProcessor.cpp
+// dispatcher -> setNearCallback https://pybullet.org/Bullet/phpBB3/viewtopic.php?t=3997 or other option from this thread
 
 void ConePenetrationTest::createEmptyDynamicsWorld() {
   using namespace profiled;
 
 	if (config["simulation"]["broadphase"].as<std::string>() == "axis") {
 		std::cout<<"Using axis sweep broadphase"<<std::endl;
-		m_broadphase = create<AxisSweep>(profile_level > 1,
-                                     btVector3(-BOX_DIAMETER, -BOX_H/3., -BOX_DIAMETER),
-		                                 btVector3(BOX_DIAMETER, BOX_H, BOX_DIAMETER));
+		auto broadphase = create<AxisSweep>(profile_level > 1,
+		                                    btVector3(-BOX_DIAMETER, -BOX_H/3., -BOX_DIAMETER),
+		                                    btVector3(BOX_DIAMETER, BOX_H, BOX_DIAMETER));
+		broadphase->setOverlappingPairUserCallback(&overlapReporter);
+		m_broadphase = broadphase;
 	} else {
 		m_broadphase = create<Dbvt>(profile_level > 1);
 	}
@@ -164,7 +195,7 @@ void ConePenetrationTest::createEmptyDynamicsWorld() {
 			std::cout<<"Thread count "<<maxThreadCount<<std::endl;
 			for (int i = 0; i < maxThreadCount; ++i)
 			{
-				solvers[i] = new btSequentialImpulseConstraintSolver();
+				solvers[i] = create<Solver>(profile_level > 1);
 			}
 			solverPool = new btConstraintSolverPoolMt(solvers, maxThreadCount);
 			m_solver = solverPool;
@@ -265,13 +296,29 @@ void ConePenetrationTest::stepPressurePhase()
 		auto V = h*BOX_DIAMETER/2.*BOX_DIAMETER/2.*SIMD_PI;
 		double grains_mass = 0.;
 		double grains_volume = 0.;
+		auto buckets = 10u;
+		auto volume_per_bucket = std::vector<double>(buckets, 0.);
+		auto mass_per_bucket = std::vector<double>(buckets, 0.);
 		for(auto grain: grains) {
-			grains_mass+=1./grain->getInvMass();
+			auto grain_y = grain->getWorldTransform().getOrigin().getY();
+			auto bucket = int(10*grain_y/BOX_H);
+
+			auto grain_mass = 1./grain->getInvMass();
+			grains_mass += grain_mass;
+			mass_per_bucket[bucket]+=grain_mass;
+
 			auto r =dynamic_cast<btSphereShape*>(grain->getCollisionShape())->getRadius();
-			grains_volume+=4./3.*SIMD_PI*r*r*r;
+			auto grain_volume = 4./3.*SIMD_PI*r*r*r;
+
+			grains_volume += grain_volume;
+			volume_per_bucket[bucket]+=grain_volume;
 		}
 		std::cout<<"void ratio: "<<(V-grains_volume)/grains_volume<<std::endl;
 		std::cout<<"\% of volume used: "<<grains_volume/V*100.<<std::endl;
+		for(int i = 0; i<buckets; ++i) {
+			std::cout<<"bucket: "<<i<<" \% of volume used: "<<volume_per_bucket[i]/V*100.*buckets<<std::endl;
+		}
+
 		auto relativeDensity = ((grains_mass/V)-regolith.properties.minDensity)/(regolith.properties.maxDensity - regolith.properties.minDensity);
 		std::cout<<"relative density: "<<relativeDensity<<std::endl;
 		auto Rd = BOX_DIAMETER/2./probeRadius;
@@ -316,6 +363,19 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 		steps_since_last_update += numSteps;
 	}
 	if(steps_since_last_update*dt > update_time) {
+		std::cout<<"report time"<<std::endl;
+		for(auto overlap_pair : overlapReporter.get_current_pairs()){
+			std::cout<<"found a pair"<<std::endl;
+			auto proxy1 = overlap_pair.first;
+			auto proxy2 = overlap_pair.second;
+			auto position1 = (proxy1->m_aabbMax + proxy1->m_aabbMin)/2.;
+			auto r1 = (proxy1->m_aabbMax - position1).length()/1.41;
+			auto position2 = (proxy2->m_aabbMax + proxy2->m_aabbMin)/2.;
+			auto r2 = (proxy2->m_aabbMax - position2).length()/1.41;
+			auto distance = (position2 - position1).length();
+			std::cout<<"distance: "<<distance<<std::endl;
+			std::cout<<"r1 + r2: "<<r1+r2<<std::endl;
+		}
 		if (profile_level > 0) {
 			CProfileManager::Start_Profile("Additional logic");
 		}
