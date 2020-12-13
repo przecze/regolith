@@ -6,6 +6,7 @@
 #include "BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
 #include "BulletDynamics/Dynamics/btDiscreteDynamicsWorldMt.h"
 #include "BulletDynamics/ConstraintSolver/btSequentialImpulseConstraintSolver.h"
+#include "BulletDynamics/ConstraintSolver/btNNCGConstraintSolver.h"
 #include "BulletDynamics/ConstraintSolver/btSequentialImpulseConstraintSolverMt.h"
 
 #include <iostream>
@@ -34,10 +35,12 @@ public:
 };
 
 class Solver : public btSequentialImpulseConstraintSolver
+//class Solver : public btNNCGConstraintSolver
 {
 
 public:
   using ParentClass = btSequentialImpulseConstraintSolver;
+  //using ParentClass = btNNCGConstraintSolver;
   BT_DECLARE_ALIGNED_ALLOCATOR();
   using ParentClass::ParentClass;
 
@@ -227,10 +230,34 @@ protected:
     auto __profile = ProfileZone(__FUNCTION__);
     ParentClass::createPredictiveContacts(timeStep);
   }
+
+  virtual void solveConstraints(btContactSolverInfo & solverInfo) {
+    auto __profile = ProfileZone(__FUNCTION__);
+    ParentClass::solveConstraints(solverInfo);
+  }
+
+  virtual void performDiscreteCollisionDetection() BT_OVERRIDE
+  {
+    auto __profile = ProfileZone(__FUNCTION__);
+    ParentClass::performDiscreteCollisionDetection();
+  }
+
+  virtual void calculateSimulationIslands() BT_OVERRIDE
+  {
+    auto __profile = ProfileZone(__FUNCTION__);
+    ParentClass::calculateSimulationIslands();
+  }
+
   virtual void integrateTransforms(btScalar timeStep) BT_OVERRIDE
   {
     auto __profile = ProfileZone(__FUNCTION__);
     ParentClass::integrateTransforms(timeStep);
+  }
+
+  virtual void updateActions(btScalar timeStep) BT_OVERRIDE
+  {
+    auto __profile = ProfileZone(__FUNCTION__);
+    ParentClass::updateActions(timeStep);
   }
 
 public:
