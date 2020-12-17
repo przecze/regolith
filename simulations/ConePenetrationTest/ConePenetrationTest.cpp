@@ -134,6 +134,7 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 	void stepStabilizationPhase();
 	void stepPressurePhase();
 	void stepPenetrationPhase(int steps_since_last_update);
+	void reportErrorByY();
 
 	enum {
 	  STABILIZATION_PHASE,
@@ -281,9 +282,58 @@ void ConePenetrationTest::stepStabilizationPhase()
 	}
 }
 
+void ConePenetrationTest::reportErrorByY()
+{
+	auto h = pressurePlate->getWorldTransform().getOrigin().getY()-pressurePlateThickness/2;
+	auto buckets = 10u;
+	auto error_per_bucket = std::vector<double>(buckets, 0.);
+	auto pairs_per_bucket = std::vector<unsigned>(buckets, 0);
+
+	auto manifolds_count = m_dynamicsWorld->getDispatcher()->getNumManifolds();
+	for(auto i = 0u; i<manifolds_count; ++i) {
+		auto manifold = m_dynamicsWorld->getDispatcher()->getManifoldByIndexInternal(i);
+		if (not manifold->getNumContacts()) {
+			continue;
+		}
+		auto *objA = manifold->getBody0();
+		auto *objB = manifold->getBody1();
+		auto r1 =static_cast<const btSphereShape*>(objA->getCollisionShape())->getRadius();
+		auto r2 =static_cast<const btSphereShape*>(objB->getCollisionShape())->getRadius();
+		auto y1 = objA->getWorldTransform().getOrigin().getY();
+		auto y2 = objB->getWorldTransform().getOrigin().getY();
+		auto bucket = int(10*(y1+y2)/2./h);
+		if (bucket < buckets) {
+			pairs_per_bucket[bucket]++;
+			error_per_bucket[bucket]+=manifold->getContactPoint(0).m_distance1;
+		}
+
+	}
+
+	//for(auto overlap_pair : overlapReporter.get_current_pairs()){
+	//	auto proxy1 = overlap_pair.first;
+	//	auto proxy2 = overlap_pair.second;
+	//	auto position1 = (proxy1->m_aabbMax + proxy1->m_aabbMin)/2.;
+	//	auto r1 = (proxy1->m_aabbMax - position1).length()/1.41;
+	//	auto position2 = (proxy2->m_aabbMax + proxy2->m_aabbMin)/2.;
+	//	auto r2 = (proxy2->m_aabbMax - position2).length()/1.41;
+	//	auto distance = (position2 - position1).length();
+	//	auto error = (r1 + r2) - distance;
+
+	//	if (bucket < buckets) {
+	//		pairs_per_bucket[bucket]++;
+	//		error_per_bucket[bucket]+=error;
+	//	}
+	//}
+
+	for(int i = 0; i<buckets; ++i) {
+		std::cout<<"bucket: "<<i<<" total error: "<<error_per_bucket[i]<<" pairs: "<< pairs_per_bucket[i] << " error per pair: " << error_per_bucket[i]/pairs_per_bucket[i]<<std::endl;
+	}
+}
+
 void ConePenetrationTest::stepPressurePhase()
 {
 	removeGrains();
+	reportErrorByY();
 	auto plate_y = pressurePlate->getWorldTransform().getOrigin().getY();
 	auto plate_v = pressurePlate->getLinearVelocity().getY();
 	std::cout<<"plate y: "<<plate_y<<" v: "<<plate_v<<std::endl;
@@ -297,27 +347,19 @@ void ConePenetrationTest::stepPressurePhase()
 		double grains_mass = 0.;
 		double grains_volume = 0.;
 		auto buckets = 10u;
-		auto volume_per_bucket = std::vector<double>(buckets, 0.);
-		auto mass_per_bucket = std::vector<double>(buckets, 0.);
-		for(auto grain: grains) {
-			auto grain_y = grain->getWorldTransform().getOrigin().getY();
-			auto bucket = int(10*grain_y/BOX_H);
 
+		for(auto grain: grains) {
 			auto grain_mass = 1./grain->getInvMass();
 			grains_mass += grain_mass;
-			mass_per_bucket[bucket]+=grain_mass;
 
 			auto r =dynamic_cast<btSphereShape*>(grain->getCollisionShape())->getRadius();
 			auto grain_volume = 4./3.*SIMD_PI*r*r*r;
 
 			grains_volume += grain_volume;
-			volume_per_bucket[bucket]+=grain_volume;
 		}
+
 		std::cout<<"void ratio: "<<(V-grains_volume)/grains_volume<<std::endl;
 		std::cout<<"\% of volume used: "<<grains_volume/V*100.<<std::endl;
-		for(int i = 0; i<buckets; ++i) {
-			std::cout<<"bucket: "<<i<<" \% of volume used: "<<volume_per_bucket[i]/V*100.*buckets<<std::endl;
-		}
 
 		auto relativeDensity = ((grains_mass/V)-regolith.properties.minDensity)/(regolith.properties.maxDensity - regolith.properties.minDensity);
 		std::cout<<"relative density: "<<relativeDensity<<std::endl;
@@ -364,18 +406,6 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 	}
 	if(steps_since_last_update*dt > update_time) {
 		std::cout<<"report time"<<std::endl;
-		for(auto overlap_pair : overlapReporter.get_current_pairs()){
-			std::cout<<"found a pair"<<std::endl;
-			auto proxy1 = overlap_pair.first;
-			auto proxy2 = overlap_pair.second;
-			auto position1 = (proxy1->m_aabbMax + proxy1->m_aabbMin)/2.;
-			auto r1 = (proxy1->m_aabbMax - position1).length()/1.41;
-			auto position2 = (proxy2->m_aabbMax + proxy2->m_aabbMin)/2.;
-			auto r2 = (proxy2->m_aabbMax - position2).length()/1.41;
-			auto distance = (position2 - position1).length();
-			std::cout<<"distance: "<<distance<<std::endl;
-			std::cout<<"r1 + r2: "<<r1+r2<<std::endl;
-		}
 		if (profile_level > 0) {
 			CProfileManager::Start_Profile("Additional logic");
 		}
