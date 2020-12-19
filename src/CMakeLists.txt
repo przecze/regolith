@@ -5,3 +5,7 @@ target_include_directories (regolith PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 add_library(utils utils.cpp)
 target_link_libraries(utils "${BULLET_LIBRARIES}")
 target_include_directories (utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_library(simprof simprof.cpp)
+target_link_libraries(simprof nlohmann_json)
+target_include_directories (simprof PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
