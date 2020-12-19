@@ -107,9 +107,9 @@ class Manager {
 		current_node = current_node->getParent();
 	}
 
-	static void dump(std::ostream& out) {
+	static nlohmann::json dump(std::ostream& out) {
 		//current_node->dumpRecursive(out);
-		out << current_node->dumpRecursiveJson();
+		return current_node->dumpRecursiveJson();
   }
 };
 

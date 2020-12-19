@@ -29,8 +29,11 @@ subject to the following restrictions:
 
 #include "packgen/gen_pack.h"
 #include "yaml-cpp/yaml.h"
+#include "nlohmann/json.hpp"
 
 #include <iostream>
+#include <iomanip>
+#include <fstream>
 #include <chrono>
 #include <random>
 #include <algorithm>
@@ -154,6 +157,10 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 
 	Regolith regolith;
 	YAML::Node config;
+  nlohmann::json profiler_data = [](){
+		auto j = nlohmann::json();
+		j["data"] = nlohmann::json::array();
+		return j;}();
 	std::vector<btRigidBody*> grains;
 	OverlapReporter overlapReporter = OverlapReporter{};
 };
@@ -424,7 +431,10 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 		steps_since_last_update = 0;
 		if (profile_level > 0) {
 			simprof::Manager::stop();
-			simprof::Manager::dump(std::cout);
+			auto profiler_dump = simprof::Manager::dump(std::cout);
+			//std::cout << std::setw(4) << profiler_dump << std::endl;
+  		profiler_data["data"].push_back(profiler_dump);
+			std::ofstream("profiler_data.json") << profiler_data << std::endl;
 		}
 	}
 
