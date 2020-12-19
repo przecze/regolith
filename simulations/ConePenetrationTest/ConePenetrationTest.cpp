@@ -35,6 +35,7 @@ subject to the following restrictions:
 #include <random>
 #include <algorithm>
 
+simprof::Node*  simprof::Manager::current_node = new simprof::Node(nullptr, "root");
 namespace {
 
 class OverlapReporter : public btOverlappingPairCallback {
@@ -407,7 +408,7 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 	if(steps_since_last_update*dt > update_time) {
 		std::cout<<"report time"<<std::endl;
 		if (profile_level > 0) {
-			CProfileManager::Start_Profile("Additional logic");
+			simprof::Manager::start("Additional logic");
 		}
 		auto current = steady_clock::now();
 		auto elapsed = current - last;
@@ -423,9 +424,8 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 		}
 		steps_since_last_update = 0;
 		if (profile_level > 0) {
-			CProfileManager::Stop_Profile();
-			CProfileManager::dumpAll();
-			CProfileManager::Reset();
+			simprof::Manager::stop();
+			simprof::Manager::dump();
 		}
 	}
 

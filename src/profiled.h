@@ -9,9 +9,12 @@
 #include "BulletDynamics/ConstraintSolver/btNNCGConstraintSolver.h"
 #include "BulletDynamics/ConstraintSolver/btSequentialImpulseConstraintSolverMt.h"
 
+#include "simprof.h"
+
 #include <iostream>
 
 namespace profiled {
+using ProfileZone = simprof::Zone;
 
 template <class T, class ...Args>
 typename T::ParentClass* create(bool profiled, Args... args) {
@@ -20,19 +23,6 @@ typename T::ParentClass* create(bool profiled, Args... args) {
   }
   return new typename T::ParentClass(args...);
 }
-
-class ProfileZone
-{
-public:
-  ProfileZone(const char* name)
-  {
-    CProfileManager::Start_Profile(name);
-  }
-  ~ProfileZone()
-  {
-    CProfileManager::Stop_Profile();
-  }
-};
 
 class Solver : public btSequentialImpulseConstraintSolver
 //class Solver : public btNNCGConstraintSolver
@@ -308,12 +298,12 @@ public:
 
 static void profileBeginCallback(btDynamicsWorld* world, btScalar timeStep)
 {
-  CProfileManager::Start_Profile("Internal world step");
+  simprof::Manager::start("Internal world step");
 }
 
 static void profileEndCallback(btDynamicsWorld* world, btScalar timeStep)
 {
-  CProfileManager::Stop_Profile();
+  simprof::Manager::stop();
 }
 
 } //namespace Profiled
