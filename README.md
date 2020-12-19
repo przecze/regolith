@@ -31,8 +31,6 @@ because CommonInterfaces (used for examples) are not included in the package
 
 ### yaml-cpp
 Required for configuration files
-https://github.com/przecze/packgen
-
 
 ### packgen
 Packgen is a library created by authors of the "[An efficient algorithm to
@@ -41,6 +39,14 @@ domains](https://www.sciencedirect.com/science/article/pii/S0898122116300864#!)"
 paper. Original code is here: https://git.tecgraf.puc-rio.br/elozano/packgen
 However to install it use this fork: https://github.com/przecze/pacgen where cmake support is added
 Packgen is used for generating the samples for simulations.
+
+### nlohmann_json
+Required for saving and analysing profiler output
+
+### python3
+Following python3 libraries are used for plots:
+* plotly
+* numpy
 
 ## Build instructions
 ```

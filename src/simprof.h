@@ -1,5 +1,6 @@
 #include<chrono>
-#include<iostream>
+#include<ostream>
+#include<nlohmann/json.hpp>
 
 namespace simprof {
 
@@ -41,16 +42,32 @@ class Node {
 		total_time += clock::now() - start_time;
 	}
 
-	void dump_recursive(unsigned level = 0) {
-		std::cout << std::string(level, '-') << name << ": ";
-		std::cout << std::chrono::duration_cast<std::chrono::microseconds>(total_time).count()/1000.;
-		std::cout << " ms (" << calls << " calls)" << std::endl;
+	nlohmann::json dumpRecursiveJson() {
+		using json = nlohmann::json;
+		json	out;
+		out["name"] = name;
+		out["calls"] = calls;
+		out["total_time"] = getTimeMs();
+		out["children"] = json::array();
+		Node* current_child = child;
+		while (current_child) {
+			out["children"].push_back(current_child->dumpRecursiveJson());
+			current_child = current_child->sibling;
+		}
+		return out;
+
+	}
+
+	void dumpRecursive(std::ostream& out, unsigned level = 0) {
+		out << std::string(level, '-') << name << ": ";
+		out << getTimeMs();;
+		out << " ms (" << calls << " calls)" << std::endl;
 		reset();
 		if (child) {
-			child->dump_recursive(level+1);
+			child->dumpRecursive(out, level+1);
 		}
 		if (sibling) {
-			sibling->dump_recursive(level);
+			sibling->dumpRecursive(out, level);
 		}
 	}
 
@@ -62,6 +79,10 @@ class Node {
 	Node* sibling = nullptr;
 	
 	private:
+
+	double getTimeMs() {
+		return std::chrono::duration_cast<std::chrono::microseconds>(total_time).count()/1000.;
+	}
 
 	void reset() {
 		calls = 0;
@@ -86,8 +107,9 @@ class Manager {
 		current_node = current_node->getParent();
 	}
 
-	static void dump() {
-		current_node->dump_recursive();
+	static void dump(std::ostream& out) {
+		//current_node->dumpRecursive(out);
+		out << current_node->dumpRecursiveJson();
   }
 };
 
