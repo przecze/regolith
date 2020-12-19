@@ -8,7 +8,7 @@ WORKDIR /third_party/bullet3/cmake_build
 # Enable multithreading
 RUN cmake -DBULLET2_MULTITHREADING=on ..
 # Enable profiler
-RUN make -j4 CXX_FLAGS=-DBT_ENABLE_PROFILE install
+RUN make -j4 install
 
 # Install yaml-cpp
 WORKDIR /third_party
