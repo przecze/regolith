@@ -1,6 +1,6 @@
 
 function(create_simulation)
-  set(common_libs regolith utils yaml-cpp packgen simprof nlohmann_json)
+  set(common_libs regolith yaml-cpp packgen simprof nlohmann_json)
   get_filename_component(sim_name ${CMAKE_CURRENT_LIST_DIR} NAME)
   message(STATUS "Defining executables for simulation: ${sim_name}")
   file( GLOB SOURCES *.cpp )
