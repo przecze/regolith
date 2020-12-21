@@ -3,7 +3,7 @@
 
 #include "yaml-cpp/yaml.h"
 
-namespace utils {
+namespace regolith::utils {
   btCompoundShape* BuildTowerCompoundShape(btVector3&& brickFullDimensions=
                                                                 btVector3(4.0,3.0,2.0),
                                                   unsigned int numRows=10,
@@ -25,4 +25,4 @@ namespace utils {
   }
 
 
-} // namespace utils
+} // namespace regolith::utils

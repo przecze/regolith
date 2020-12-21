@@ -4,7 +4,7 @@
 #include "LinearMath/btVector3.h"
 #include "LinearMath/btAlignedObjectArray.h"
 #include <iostream>
-namespace utils {
+namespace regolith::utils {
   btCompoundShape* BuildTowerCompoundShape(btVector3&& brickFullDimensions,
                                                   unsigned int numRows,
                                                   unsigned int numBricksPerRow,

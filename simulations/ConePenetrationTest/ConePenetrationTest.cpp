@@ -39,6 +39,7 @@ subject to the following restrictions:
 #include <algorithm>
 
 namespace {
+namespace utils = regolith::utils;
 
 class OverlapReporter : public btOverlappingPairCallback {
   std::vector<std::pair<btBroadphaseProxy*, btBroadphaseProxy*>> pairs;
@@ -82,7 +83,7 @@ double correction_factor(double Dr, double Rd) {
 struct ConePenetrationTest : public CommonRigidBodyBase
 {
 	ConePenetrationTest(struct GUIHelperInterface* helper,
-	                    RegolithProperties regolith_properties,
+	                    regolith::RegolithProperties regolith_properties,
 						const YAML::Node& config)
 		: CommonRigidBodyBase(helper),
 		  regolith(regolith_properties, 10),
@@ -155,7 +156,7 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 	  update_time/=rescaleFactor;
 	}
 
-	Regolith regolith;
+	regolith::Regolith regolith;
 	YAML::Node config;
   nlohmann::json profiler_data = [](){
 		auto j = nlohmann::json();
@@ -442,10 +443,10 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 
 void ConePenetrationTest::addInitialGrains() {
 
-  auto sizes_count = regolith.grainRadii.size();
+  auto sizes_count = regolith.grain_radii.size();
   double p[sizes_count];
   std::fill_n(p, sizes_count, 1./sizes_count);
-  double* r = &regolith.grainRadii[0];
+  double* r = &regolith.grain_radii[0];
 	PG::NG* ng = new PG::GeneralNG(r,
                                  p,
                                  sizes_count);
@@ -544,12 +545,12 @@ CommonExampleInterface* CreateFunc(CommonExampleOptions& options)
 	auto properties = [&config]{
 		try {
 			std::cout<<"Regolith configuration found in config.yaml"<<std::endl;
-			return load_properties_from_yaml(config["regolith"]);
+			return regolith::loadPropertiesFromYaml(config["regolith"]);
 		}
 		catch(YAML::InvalidNode) {
 			std::cout<<"No regolith configuration found in config.yaml. "
 								 "Loading regolith.yaml"<<std::endl;
-			return load_properties_from_file("regolith.yaml");
+			return regolith::loadPropertiesFromFile("regolith.yaml");
 		}}();
 
 	return new ConePenetrationTest(options.m_guiHelper, properties, config);

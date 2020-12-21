@@ -36,7 +36,7 @@ double BOX_H = 0.2;
 struct ResponseAngle : public CommonRigidBodyBase
 {
 	ResponseAngle(struct GUIHelperInterface* helper,
-			          RegolithProperties regolith_properties)
+			          regolith::RegolithProperties regolith_properties)
 		: CommonRigidBodyBase(helper),
 			regolith(regolith_properties, 10)
 	{
@@ -53,7 +53,7 @@ struct ResponseAngle : public CommonRigidBodyBase
 		float targetPos[3] = {0, 0, 0};
 		m_guiHelper->resetCamera(dist, yaw, pitch, targetPos[0], targetPos[1], targetPos[2]);
 	}
-	Regolith regolith;
+	regolith::Regolith regolith;
 };
 
 void ResponseAngle::initPhysics()
@@ -84,10 +84,10 @@ void ResponseAngle::initPhysics()
 	ground->setRestitution(0.);
 	ground->setFriction(1);
 
-	auto sizes_count = regolith.grainRadii.size();
+	auto sizes_count = regolith.grain_radii.size();
 	double p[sizes_count];
 	std::fill_n(p, sizes_count, 1./sizes_count);
-	double* r = &regolith.grainRadii[0];
+	double* r = &regolith.grain_radii[0];
 	PG::NG* ng = new PG::GeneralNG(r,
 	                               p,
 	                               sizes_count);
@@ -156,12 +156,12 @@ CommonExampleInterface* CreateFunc(CommonExampleOptions& options)
 	auto properties = [&config]{
 		try {
 			std::cout<<"Regolith configuration found in config.yaml"<<std::endl;
-			return load_properties_from_yaml(config["regolith"]);
+			return regolith::loadPropertiesFromYaml(config["regolith"]);
 		}
 		catch(YAML::InvalidNode) {
 			std::cout<<"No regolith configuration found in config.yaml. "
 								 "Loading regolith.yaml"<<std::endl;
-			return load_properties_from_file("regolith.yaml");
+			return regolith::loadPropertiesFromFile("regolith.yaml");
 		}}();
 	return new ResponseAngle(options.m_guiHelper, properties);
 }
