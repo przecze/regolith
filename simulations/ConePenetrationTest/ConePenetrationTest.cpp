@@ -37,8 +37,18 @@ subject to the following restrictions:
 #include <chrono>
 #include <random>
 #include <algorithm>
+#include <cstdlib>
 
 namespace {
+
+double gColors[4][4] =
+  {
+		{60. / 256., 186. / 256., 84. / 256., 1},
+  	{244. / 256., 194. / 256., 13. / 256., 1},
+		{219. / 256., 50. / 256., 54. / 256., 1},
+		{72. / 256., 133. / 256., 237. / 256., 1},
+};
+
 namespace utils = regolith::utils;
 
 class OverlapReporter : public btOverlappingPairCallback {
@@ -94,8 +104,8 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 		  probeRadius(config["probe"]["radius"].as<double>()),
 		  pressure(config["pressure"]["value"].as<double>()),
 		  pressurePlateThickness(config["pressure"]["plate_thickness"].as<double>()),
-		  update_time(config["simulation"]["update_time"].as<double>()),
-		  dt(1./(config["simulation"]["updates_per_second"].as<double>())),
+		  update_time(config["simulation"]["big_step"].as<double>()),
+		  dt(1./(config["simulation"]["small_steps_per_second"].as<double>())),
       profile_level(utils::try_get(config["simulation"]["profile_level"], 0u))
 	{
 	}
@@ -118,10 +128,10 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 	void stepSimulation(float deltaTime) override;
 	void resetCamera()
 	{
-		float dist = 4;
+		float dist = 1.5;
 		float pitch = -35;
 		float yaw = 52;
-		float targetPos[3] = {0, 0, 0};
+		float targetPos[3] = {0, 0.2, 0};
 		m_guiHelper->resetCamera(dist, yaw, pitch, targetPos[0], targetPos[1], targetPos[2]);
 	}
 
@@ -137,7 +147,7 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 
 	void stepStabilizationPhase();
 	void stepPressurePhase();
-	void stepPenetrationPhase(int steps_since_last_update);
+	void stepPenetrationPhase(int steps_since_last_update, double velocity_change);
 	void reportErrorByY();
 
 	enum {
@@ -268,6 +278,13 @@ void ConePenetrationTest::initPhysics()
 
 	// initialize graphics
 	m_guiHelper->autogenerateGraphicsObjects(m_dynamicsWorld);
+
+	for(auto grain: grains) {
+		auto r =dynamic_cast<btSphereShape*>(grain->getCollisionShape())->getRadius();
+		auto radius_factor = (regolith.properties.maxRadius - r)/(regolith.properties.maxRadius-regolith.properties.minRadius)*100;
+		const double color[4] = {205./256.,194/256.,(100.+radius_factor)/256.,1.};
+		m_guiHelper->changeRGBAColor(grain->getUserIndex(), color);
+	}
 	const double transparent[4] = {0.,0.,0.,0.05};
 	m_guiHelper->changeRGBAColor(ground->getUserIndex(), transparent);
 	m_guiHelper->changeRGBAColor(tower->getUserIndex(), transparent);
@@ -341,7 +358,7 @@ void ConePenetrationTest::reportErrorByY()
 void ConePenetrationTest::stepPressurePhase()
 {
 	removeGrains();
-	reportErrorByY();
+	//reportErrorByY();
 	auto plate_y = pressurePlate->getWorldTransform().getOrigin().getY();
 	auto plate_v = pressurePlate->getLinearVelocity().getY();
 	std::cout<<"plate y: "<<plate_y<<" v: "<<plate_v<<std::endl;
@@ -379,24 +396,31 @@ void ConePenetrationTest::stepPressurePhase()
 		std::cout<<"correctionFactor: "<<correctionFactor<<std::endl;
 		//std::cout<<"correctionFactorold: "<<correction_factor_old(relativeDensity, Rd)<<std::endl;
 		std::cout<<"expected resistance to be measured: "<<expectedResistance<<std::endl;
-		update_time = config["simulation"]["penetration"]["update_time"].as<double>();
+		update_time = config["simulation"]["penetration"]["big_step"].as<double>();
 	}
 }
 
-void ConePenetrationTest::stepPenetrationPhase(int steps_since_last_update) {
-	// calculate change in momentum
-	auto v_0 = probe->getLinearVelocity();
-	auto mass = 1./probe->getInvMass();
-	auto momentumChange = (v_0 - btVector3(0., probeVelocity, 0.)).getY()*mass;
+void ConePenetrationTest::stepPenetrationPhase(int steps_since_last_update, double velocity_change) {
+	static double initial_y = 1000.f;
+	static double total_time = 0.f;
+	auto y = probe->getWorldTransform().getOrigin().getY();
 
+	// sanity check that the average speed is similar to desired probeVelocity
+	if(initial_y == 1000.) {
+		initial_y = y; 
+		total_time -= steps_since_last_update*dt;
+	}
+	total_time += steps_since_last_update*dt;
+	std::cout<<"distance:"<<(y-initial_y)<<std::endl;
+	std::cout<<"total_time:"<<total_time<<std::endl;
+	std::cout<<"average speed:"<<(y-initial_y)/total_time<<std::endl;
+
+	// calculate and report resistance based on total velocity change accumulated since last update
+	auto mass = 1./probe->getInvMass();
+	auto momentumChange = velocity_change*mass;
 	auto resistanceForce = (momentumChange)/(steps_since_last_update*dt);
 	auto resistance = resistanceForce / (probeRadius*probeRadius*SIMD_PI);
-	std::cout<<probe->getWorldTransform().getOrigin().getY()<<" "<<resistance<<std::endl;
-
-	// correct probe velocity and position
-	probe->setLinearVelocity(btVector3(0.,probeVelocity,0.));
-	auto position_correction = btVector3(0., probeVelocity, 0.)*steps_since_last_update*dt;
-	probe->getWorldTransform().setOrigin(probe->getWorldTransform().getOrigin() + position_correction);
+	std::cout<<"y: "<<y<<" resistance: "<<resistance<<std::endl;
 }
 
 void ConePenetrationTest::stepSimulation(float deltaTime)
@@ -405,15 +429,21 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 	static auto last = steady_clock::now();
 	static int steps_since_last_update = 0;
 	static int grains_count = 0;
+	static double probe_velocity_change = 0;
 	{
-		auto numSteps = m_dynamicsWorld->stepSimulation(deltaTime, 1, dt);
- 		// note: maxSubSteps = 1 is passed implicitly here as default argument.
- 		// Therefore we will do only one step (1/60 s) not the whole deltaTime
- 		// ( = 0.1 s in gui demos)
-		steps_since_last_update += numSteps;
+		// note: stepSimulation doesn't return the actual steps performed, but
+		// deltaTime/dt therefore we disable clamping and ensure only one step is made.
+		m_dynamicsWorld->stepSimulation(deltaTime, 1, dt);
+		steps_since_last_update += 1;
 	}
+
+	// in penetration phase there are things we need to do every step
+	if (phase == PENETRATION_PHASE) {
+		probe_velocity_change += probe->getLinearVelocity().getY()-probeVelocity;
+		probe->setLinearVelocity(btVector3(0., 1.03*probeVelocity, 0.));
+	}
+
 	if(steps_since_last_update*dt > update_time) {
-		std::cout<<"report time"<<std::endl;
 		if (profile_level > 0) {
 			simprof::Manager::start("Additional logic");
 		}
@@ -424,15 +454,18 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 		if (phase == STABILIZATION_PHASE) {
 			stepStabilizationPhase();
 		} else if (phase == PRESSURE_PHASE) {
-  			stepPressurePhase();
+  		stepPressurePhase();
 		} else if (phase == PENETRATION_PHASE) {
-			stepPenetrationPhase(steps_since_last_update);
+			stepPenetrationPhase(steps_since_last_update, probe_velocity_change);
+			probe_velocity_change = 0;
 		} else if (phase == FINISHED_PHASE) {
+  		std::exit(0);
 		}
 		steps_since_last_update = 0;
 		if (profile_level > 0) {
 			simprof::Manager::stop();
-			auto profiler_dump = simprof::Manager::dump(std::cout);
+			auto profiler_dump = simprof::Manager::dump_json();
+  		profiler_dump["phase"] = phase;
 			//std::cout << std::setw(4) << profiler_dump << std::endl;
   		profiler_data["data"].push_back(profiler_dump);
 			std::ofstream("profiler_data.json") << profiler_data << std::endl;
@@ -465,7 +498,8 @@ void ConePenetrationTest::addInitialGrains() {
 		btTransform transform;
 		transform.setIdentity();
 		transform.setOrigin(btVector3(s.x, s.y, s.z));
-		grains.push_back(regolith.createGrain(this, transform, s.r));
+		auto grain = regolith.createGrain(this, transform, s.r);
+		grains.push_back(grain);
 	}
 }
 
@@ -513,7 +547,8 @@ void ConePenetrationTest::createProbe() {
 
 	m_collisionShapes.push_back(probeShape);
 
-	probeTransform.setOrigin(btVector3(0., BOX_H, 0.));
+	auto probe_initial_y = pressurePlate->getWorldTransform().getOrigin().getY();
+	probeTransform.setOrigin(btVector3(0., probe_initial_y, 0.));
 	
 	auto probeMass = config["probe"]["mass"].as<double>();
 	probe = createRigidBody(probeMass, probeTransform, probeShape);
@@ -523,6 +558,7 @@ void ConePenetrationTest::createProbe() {
 	probe->setGravity(btVector3{0.,0.,0.});
 
 	m_guiHelper->autogenerateGraphicsObjects(m_dynamicsWorld);
+	m_guiHelper->changeRGBAColor(probe->getUserIndex(), gColors[2]);
 }
 
 void ConePenetrationTest::createPressurePlate() {
@@ -536,6 +572,9 @@ void ConePenetrationTest::createPressurePlate() {
 	std::cout<<"plate mass: "<<plateMass<<std::endl;
 	pressurePlate = createRigidBody(plateMass, plateTransform, pressurePlateShape);
 	m_guiHelper->autogenerateGraphicsObjects(m_dynamicsWorld);
+	const double transparent[4] = {0.,0.,0.,1.};
+
+	m_guiHelper->changeRGBAColor(pressurePlate->getUserIndex(), gColors[3]);
 }
 }
 

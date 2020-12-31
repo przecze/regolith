@@ -1,11 +1,9 @@
 simulation:
-  update_time: 1.
+  big_step: 0.2
   profile_level: 2
-  updates_per_second: 480
-  filling:
-    layers_per_update: 2
+  small_steps_per_second: 480
   penetration:
-    update_time: 0.05
+    big_step: 0.2
   broadphase: "axis"
   threads: 1
 
@@ -20,8 +18,8 @@ probe:
   mass: 1000.
 
 pressure:
-  value: 100000
-  plate_thickness: 0.05
+  value: 60000
+  plate_thickness: 0.1
 
 regolith:
   # physics properties
@@ -30,8 +28,8 @@ regolith:
   rollingFriction: 1.
 
   # radii in m
-  maxRadius: 0.04
-  minRadius: 0.035
+  maxRadius: 0.06
+  minRadius: 0.03
 
   # Below values in kg/m^3
 
