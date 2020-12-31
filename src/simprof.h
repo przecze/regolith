@@ -2,6 +2,8 @@
 #include<ostream>
 #include<nlohmann/json.hpp>
 
+#include<iostream>
+
 namespace simprof {
 
 class Node {
@@ -49,6 +51,7 @@ class Node {
 		out["calls"] = calls;
 		out["total_time"] = getTimeMs();
 		out["children"] = json::array();
+    reset();
 		Node* current_child = child;
 		while (current_child) {
 			out["children"].push_back(current_child->dumpRecursiveJson());
@@ -91,7 +94,7 @@ class Node {
 
 	unsigned calls = 0;
 	clock::time_point start_time;
-	clock::duration total_time;
+	clock::duration total_time = clock::duration(0);
 };
 
 
@@ -107,8 +110,11 @@ class Manager {
 		current_node = current_node->getParent();
 	}
 
-	static nlohmann::json dump(std::ostream& out) {
-		//current_node->dumpRecursive(out);
+	static void dump(std::ostream& out) {
+		current_node->dumpRecursive(out);
+	}
+
+	static nlohmann::json dump_json() {
 		return current_node->dumpRecursiveJson();
   }
 };
