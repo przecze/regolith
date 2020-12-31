@@ -1,6 +1,9 @@
+#!/usr/bin/python3
 import chart_studio.plotly as py
 import plotly.graph_objs as go
 import numpy as np
+import json
+import time
 
 
 def area_plot(data, labels):
@@ -42,6 +45,18 @@ def area_plot(data, labels):
         previous_series += series
     return plots
 
-plots = area_plot(np.array([[1,2,3,4], [1,4,9,10]]), ['', 'broadphase'])
+json_data  = json.load(open("profiler_data.json"))
+times = []
+for step_data in json_data["data"]:
+    #print(step_data)
+    [internal_step_data] = [child for child in step_data["children"] if child["name"]=="Internal world step"]
+    step_names = [child["name"] for child in internal_step_data["children"]]
+    times.append([child["total_time"] for child in internal_step_data["children"]])
+
+data = np.array(list(zip(*times)))
+
+print(step_names)
+print(data)
+plots = area_plot(data, step_names)
 fig = go.Figure(data=plots)
 fig.show()
