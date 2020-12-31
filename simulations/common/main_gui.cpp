@@ -66,7 +66,7 @@ public:
 };
 int main(int argc, char* argv[])
 {
-	SimpleOpenGL3App* app = new SimpleOpenGL3App("Bullet Standalone Example", 1024, 768, true);
+	SimpleOpenGL3App* app = new SimpleOpenGL3App("Bullet Standalone Example", 600, 800, true);
 
 	prevMouseButtonCallback = app->m_window->getMouseButtonCallback();
 	prevMouseMoveCallback = app->m_window->getMouseMoveCallback();
@@ -104,7 +104,7 @@ int main(int argc, char* argv[])
 
 		DrawGridData dg;
 		dg.upAxis = app->getUpAxis();
-		app->drawGrid(dg);
+		//app->drawGrid(dg);
 
 		app->swapBuffer();
 	} while (!app->m_window->requestedExit());
