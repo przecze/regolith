@@ -47,16 +47,30 @@ def area_plot(data, labels):
 
 json_data  = json.load(open("profiler_data.json"))
 times = []
-for step_data in json_data["data"]:
-    #print(step_data)
+phases=[("start", 0)]
+for i, step_data in enumerate(json_data["data"]):
+    phase_name = {
+            0: "inicjalizacja",
+            1: "aplikacja ciśnienia",
+            2: "penetracja",
+            3: "koniec"
+            }[step_data["phase"]]
+    if phases[-1][0] != phase_name:
+        phases.append((phase_name, i))
     [internal_step_data] = [child for child in step_data["children"] if child["name"]=="Internal world step"]
     step_names = [child["name"] for child in internal_step_data["children"]]
     times.append([child["total_time"] for child in internal_step_data["children"]])
 
+print(phases)
 data = np.array(list(zip(*times)))
-
-print(step_names)
-print(data)
 plots = area_plot(data, step_names)
 fig = go.Figure(data=plots)
+fig.update_layout(
+    xaxis = dict(
+        tickmode = 'array',
+        tickvals = [i for p, i in phases],
+        ticktext = [p for p, i in phases]
+    )
+)
+
 fig.show()
