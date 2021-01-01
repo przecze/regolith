@@ -39,6 +39,9 @@ subject to the following restrictions:
 #include <algorithm>
 #include <cstdlib>
 
+#include <thread>
+
+
 namespace {
 
 double gColors[4][4] =
@@ -128,7 +131,7 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 	void stepSimulation(float deltaTime) override;
 	void resetCamera()
 	{
-		float dist = 1.5;
+		float dist = 1.6;
 		float pitch = -35;
 		float yaw = 52;
 		float targetPos[3] = {0, 0.2, 0};
@@ -261,6 +264,9 @@ void ConePenetrationTest::initPhysics()
 	groundTransform.setIdentity();
 	groundTransform.setOrigin(btVector3(0, -BOX_H/2, 0));
 	auto ground = createRigidBody(0., groundTransform, groundShape, btVector4(0, 0, 1, 0));
+	ground->setFriction(utils::try_get<double>(config["box"]["friction"], 0.));
+	ground->setRestitution(utils::try_get<double>(config["box"]["restitution"], 0.));
+	ground->setRollingFriction(utils::try_get<double>(config["box"]["rolling_friction"], 0.));
 
 	// create walls as single tower shape
 	auto wall_thickness = config["box"]["wall_thickness"].as<double>();
@@ -271,6 +277,9 @@ void ConePenetrationTest::initPhysics()
 	                           1);
 	m_collisionShapes.push_back(towerShape);
 	auto tower = createRigidBody(0., groundTransform, towerShape, btVector4(0, 0, 0, 0));
+	tower->setFriction(utils::try_get<double>(config["box"]["friction"], 0.));
+	tower->setRestitution(utils::try_get<double>(config["box"]["restitution"], 0.));
+	tower->setRollingFriction(utils::try_get<double>(config["box"]["rolling_friction"], 0.));
 
 	// add initial grains
 	addInitialGrains();
@@ -421,6 +430,9 @@ void ConePenetrationTest::stepPenetrationPhase(int steps_since_last_update, doub
 	auto resistanceForce = (momentumChange)/(steps_since_last_update*dt);
 	auto resistance = resistanceForce / (probeRadius*probeRadius*SIMD_PI);
 	std::cout<<"y: "<<y<<" resistance: "<<resistance<<std::endl;
+  if (y<BOX_H/5.) {
+    phase = FINISHED_PHASE;
+  }
 }
 
 void ConePenetrationTest::stepSimulation(float deltaTime)
@@ -547,7 +559,7 @@ void ConePenetrationTest::createProbe() {
 
 	m_collisionShapes.push_back(probeShape);
 
-	auto probe_initial_y = pressurePlate->getWorldTransform().getOrigin().getY();
+	auto probe_initial_y = pressurePlate->getWorldTransform().getOrigin().getY() + pressurePlateThickness +0.1;
 	probeTransform.setOrigin(btVector3(0., probe_initial_y, 0.));
 	
 	auto probeMass = config["probe"]["mass"].as<double>();
@@ -571,6 +583,9 @@ void ConePenetrationTest::createPressurePlate() {
 	auto plateMass = pressure*(BOX_DIAMETER/2.1*BOX_DIAMETER/2.1*SIMD_PI)/(-m_dynamicsWorld->getGravity().getY());
 	std::cout<<"plate mass: "<<plateMass<<std::endl;
 	pressurePlate = createRigidBody(plateMass, plateTransform, pressurePlateShape);
+	pressurePlate->setFriction(utils::try_get<double>(config["box"]["friction"], 0.));
+	pressurePlate->setRestitution(utils::try_get<double>(config["box"]["restitution"], 0.));
+	pressurePlate->setRollingFriction(utils::try_get<double>(config["box"]["rolling_friction"], 0.));
 	m_guiHelper->autogenerateGraphicsObjects(m_dynamicsWorld);
 	const double transparent[4] = {0.,0.,0.,1.};
 
