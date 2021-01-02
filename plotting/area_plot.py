@@ -81,6 +81,6 @@ fig.update_xaxes(
     tickson="boundaries",
     ticklen=20
 )
-fig.update_yaxes(range=[0, 300000])
+fig.update_yaxes(range=[0, 30000])
 
 fig.show()
