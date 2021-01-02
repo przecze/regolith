@@ -60,8 +60,10 @@ for i, step_data in enumerate(json_data["data"]):
     [internal_step_data] = [child for child in step_data["children"] if child["name"]=="Internal world step"]
     step_names = [child["name"] for child in internal_step_data["children"]]
     times.append([child["total_time"] for child in internal_step_data["children"]])
-
-print(phases)
+    times[-1].append(internal_step_data["total_time"] - sum(times[-1]))
+    step_names.append("other")
+    print(dict(zip(step_names, times[-1])))
+phases = phases[1:]
 data = np.array(list(zip(*times)))
 plots = area_plot(data, step_names)
 fig = go.Figure(data=plots)
@@ -69,8 +71,16 @@ fig.update_layout(
     xaxis = dict(
         tickmode = 'array',
         tickvals = [i for p, i in phases],
-        ticktext = [p for p, i in phases]
+        ticktext = ["  "+p for p, i in phases]
     )
 )
+fig.update_xaxes(
+    showgrid=True,
+    ticklabelposition="outside right",
+    ticks="outside",
+    tickson="boundaries",
+    ticklen=20
+)
+fig.update_yaxes(range=[0, 300000])
 
 fig.show()
