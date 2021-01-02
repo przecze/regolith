@@ -14,14 +14,16 @@
 namespace regolith {
 RegolithProperties loadPropertiesFromYaml(const YAML::Node& config) {
 	RegolithProperties properties;
-	properties.maxRadius = config["maxRadius"].as<btScalar>();
-	properties.minRadius = config["minRadius"].as<btScalar>();
+	const auto units_per_m = utils::try_get(config["units_per_m"], 1.);
+	properties.maxRadius = config["maxRadius"].as<btScalar>()*units_per_m;
+	properties.minRadius = config["minRadius"].as<btScalar>()*units_per_m;
 	properties.restitution = config["restitution"].as<btScalar>();
 	properties.friction = config["friction"].as<btScalar>();
 	properties.rollingFriction = config["rollingFriction"].as<btScalar>();
-	properties.materialDensity = config["materialDensity"].as<btScalar>();
-	properties.maxDensity = config["maxDensity"].as<btScalar>();
-	properties.minDensity = config["minDensity"].as<btScalar>();
+	const auto units_per_m3 = std::pow(units_per_m, 3);
+	properties.materialDensity = config["materialDensity"].as<btScalar>()/units_per_m3;
+	properties.maxDensity = config["maxDensity"].as<btScalar>()/units_per_m3;
+	properties.minDensity = config["minDensity"].as<btScalar>()/units_per_m3;
 	return properties;
 }
 

@@ -97,29 +97,32 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 {
 	ConePenetrationTest(struct GUIHelperInterface* helper,
 	                    regolith::RegolithProperties regolith_properties,
-						const YAML::Node& config)
+	                    double units_per_m,
+	                    const YAML::Node& config)
 		: CommonRigidBodyBase(helper),
-		  regolith(regolith_properties, 10),
 		  config(YAML::Clone(config)),
-		  BOX_DIAMETER(config["box"]["diameter"].as<double>()),
-		  BOX_H(config["box"]["height"].as<double>()),
-		  probeVelocity(config["probe"]["velocity"].as<double>()),
-		  probeRadius(config["probe"]["radius"].as<double>()),
-		  pressure(config["pressure"]["value"].as<double>()),
-		  pressurePlateThickness(config["pressure"]["plate_thickness"].as<double>()),
+		  units_per_m(units_per_m),
+		  regolith(regolith_properties, 10),
+		  BOX_DIAMETER(config["box"]["diameter"].as<double>()*units_per_m),
+		  BOX_H(config["box"]["height"].as<double>()*units_per_m),
+		  probeVelocity(config["probe"]["velocity"].as<double>()*units_per_m),
+		  probeRadius(config["probe"]["radius"].as<double>()*units_per_m),
+		  pressure(config["pressure"]["value"].as<double>()/units_per_m/units_per_m),
+		  pressurePlateThickness(config["pressure"]["plate_thickness"].as<double>()*units_per_m),
 		  update_time(config["simulation"]["big_step"].as<double>()),
 		  dt(1./(config["simulation"]["small_steps_per_second"].as<double>())),
-      profile_level(utils::try_get(config["simulation"]["profile_level"], 0u))
+		  profile_level(utils::try_get(config["simulation"]["profile_level"], 0u))
 	{
 	}
 	btITaskScheduler* m_taskScheduler;
 
-	const double BOX_DIAMETER; // m
-	const double BOX_H; // m
-	const double probeVelocity; // m/s
-	const double probeRadius; // m
-	const double pressure; // Pa
-	const double pressurePlateThickness; // m
+	const double BOX_DIAMETER;
+	const double BOX_H;
+	const double probeVelocity;
+	const double probeRadius;
+	const double pressure;
+	const double pressurePlateThickness;
+	const double units_per_m; // to how many units of length should one meter correspond
 	double dt; // s (not const because is later rescaled)
 	double update_time; // s
 	const unsigned profile_level;
@@ -131,10 +134,10 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 	void stepSimulation(float deltaTime) override;
 	void resetCamera()
 	{
-		float dist = 1.6;
+		float dist = 1.2*BOX_DIAMETER;
 		float pitch = -35;
 		float yaw = 52;
-		float targetPos[3] = {0, 0.2, 0};
+		float targetPos[3] = {0, 0.2*BOX_H, 0};
 		m_guiHelper->resetCamera(dist, yaw, pitch, targetPos[0], targetPos[1], targetPos[2]);
 	}
 
@@ -241,8 +244,6 @@ void ConePenetrationTest::createEmptyDynamicsWorld() {
 		//m_dynamicsWorld->setInternalTickCallback(profileEndCallback, NULL, false);
 	}
 
-	auto gravity = utils::try_get<double>(config["simulation"]["gravity"], -10.);
-	m_dynamicsWorld->setGravity(btVector3(0, gravity, 0));
 }
 
 void ConePenetrationTest::initPhysics()
@@ -250,7 +251,8 @@ void ConePenetrationTest::initPhysics()
 	m_guiHelper->setUpAxis(1);
 
 	createEmptyDynamicsWorld();
-	m_dynamicsWorld->setGravity(btVector3(0,-10,0));
+	auto gravity = utils::try_get<double>(config["simulation"]["gravity"], -10.)*units_per_m;
+	m_dynamicsWorld->setGravity(btVector3(0, gravity, 0));
 	m_guiHelper->createPhysicsDebugDrawer(m_dynamicsWorld);
 
 	if (m_dynamicsWorld->getDebugDrawer())
@@ -270,7 +272,7 @@ void ConePenetrationTest::initPhysics()
 	ground->setRollingFriction(utils::try_get<double>(config["box"]["rolling_friction"], 0.));
 
 	// create walls as single tower shape
-	auto wall_thickness = config["box"]["wall_thickness"].as<double>();
+	auto wall_thickness = config["box"]["wall_thickness"].as<double>()*units_per_m;
 	auto towerShape = utils::BuildTowerCompoundShape(
 	                           btVector3{(BOX_DIAMETER+wall_thickness)/(std::sqrt(5 + 2.*std::sqrt(5))),
 	                                      BOX_H*2.,
@@ -310,7 +312,7 @@ void ConePenetrationTest::stepStabilizationPhase()
 	//int removed = removeGrains();
 	auto total_v2 = resetVelocities();
 	auto v2_thershold = utils::try_get<double>(config["simulation"]["initialization"]["v2_thershold"],
-	                                           0.001);
+	                                           0.001)*units_per_m*units_per_m;
 	if (total_v2 / grains.size() < v2_thershold) {
 	  phase=PRESSURE_PHASE;
 	  //rescaleTime(4.);
@@ -373,9 +375,11 @@ void ConePenetrationTest::stepPressurePhase()
 	//reportErrorByY();
 	auto plate_y = pressurePlate->getWorldTransform().getOrigin().getY();
 	auto plate_v = pressurePlate->getLinearVelocity().getY();
-	std::cout<<"plate y: "<<plate_y<<" v: "<<plate_v<<std::endl;
+	std::cout<<"plate y: "<<plate_y<<" v: "<<plate_v/units_per_m<<std::endl;
+	auto v_thershold = utils::try_get<double>(config["simulation"]["pressure"]["plate_v_thershold"],
+	                                          0.01)*units_per_m;
 
-	if(abs(plate_v)<0.01) {
+	if(abs(plate_v) < v_thershold) {
 		std::cout<<"Entering PENETRATION_PHASE"<<std::endl;
 		phase = PENETRATION_PHASE;
 		createProbe();
@@ -402,7 +406,7 @@ void ConePenetrationTest::stepPressurePhase()
 		std::cout<<"relative density: "<<relativeDensity<<std::endl;
 		auto Rd = BOX_DIAMETER/2./probeRadius;
 		correctionFactor = correction_factor(relativeDensity, Rd);
-		constexpr double p0 = 1000*100;
+		const auto p0 = 1000.*100/units_per_m/units_per_m;
 		auto expectedResistance = 23.19*p0*std::pow(pressure/p0, 0.56)*std::exp(2.97*relativeDensity);
 		auto expectedMeasuredResistance = expectedResistance/correctionFactor;
 		std::cout<<"correctionFactor: "<<correctionFactor<<std::endl;
@@ -413,26 +417,26 @@ void ConePenetrationTest::stepPressurePhase()
 }
 
 void ConePenetrationTest::stepPenetrationPhase(int steps_since_last_update, double velocity_change) {
-	static double initial_y = 1000.f;
+	static double initial_y = -1.;
 	static double total_time = 0.f;
 	auto y = probe->getWorldTransform().getOrigin().getY();
 
 	// sanity check that the average speed is similar to desired probeVelocity
-	if(initial_y == 1000.) {
+	if(initial_y == -1.) {
 		initial_y = y; 
 		total_time -= steps_since_last_update*dt;
 	}
 	total_time += steps_since_last_update*dt;
-	std::cout<<"distance:"<<(y-initial_y)<<std::endl;
+	std::cout<<"distance:"<<(y-initial_y)/units_per_m<<std::endl;
 	std::cout<<"total_time:"<<total_time<<std::endl;
-	std::cout<<"average speed:"<<(y-initial_y)/total_time<<std::endl;
+	std::cout<<"average speed:"<<(y-initial_y)/units_per_m/total_time<<std::endl;
 
 	// calculate and report resistance based on total velocity change accumulated since last update
 	auto mass = 1./probe->getInvMass();
 	auto momentumChange = velocity_change*mass;
 	auto resistanceForce = (momentumChange)/(steps_since_last_update*dt);
 	auto resistance = resistanceForce / (probeRadius*probeRadius*SIMD_PI);
-	std::cout<<"y: "<<y<<" resistance: "<<resistance<<std::endl;
+	std::cout<<"y: "<<y<<" resistance: "<<resistance*units_per_m*units_per_m<<std::endl;
   if (y<BOX_H/4.) {
     phase = FINISHED_PHASE;
   }
@@ -502,19 +506,26 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 void ConePenetrationTest::addInitialGrains() {
 
   auto sizes_count = regolith.grain_radii.size();
+	double sizes[sizes_count];
   double p[sizes_count];
-  std::fill_n(p, sizes_count, 1./sizes_count);
-  double* r = &regolith.grain_radii[0];
-	PG::NG* ng = new PG::GeneralNG(r,
+	for (int i = 0; i<sizes_count; ++i) {
+		p[i] = 1./sizes_count;
+		sizes[i] = regolith.grain_radii[i];
+	}
+	PG::NG* ng = new PG::GeneralNG(sizes,
                                  p,
                                  sizes_count);
+	//std::cout<<BOX_H<<std::endl;
+	//std::cout<<BOX_DIAMETER<<std::endl;
+	//std::cout<<regolith.properties.minRadius<<std::endl;
+	//std::cout<<regolith.properties.maxRadius<<std::endl;
+	//std::cout<<sizes[0]<<std::endl;
+	//std::cout<<sizes[sizes_count-1]<<std::endl;
 
-	//PG::NG* ng = new PG::UniformNG(0.9*regolith.minRadius,
-  //                               0.9*regolith.maxRadius);
 	PG::Grid3d dom;
 	PG::Container* container = new PG::Cylinder({0.0, 0.0, 0.0},
                                               {0.0, BOX_H, 0.0},
-                                              BOX_DIAMETER/2);
+                                              BOX_DIAMETER/2.);
 
 	PG::SpherePack* pack = new PG::SpherePack();
 	PG::SpherePackStat result = PG::GenerateSpherePack(container, ng, &dom, pack);
@@ -629,8 +640,8 @@ CommonExampleInterface* CreateFunc(CommonExampleOptions& options)
 								 "Loading regolith.yaml"<<std::endl;
 			return regolith::loadPropertiesFromFile("regolith.yaml");
 		}}();
-
-	return new ConePenetrationTest(options.m_guiHelper, properties, config);
+	const auto units_per_m = utils::try_get(config["simulation"]["units_per_m"], 1.);
+	return new ConePenetrationTest(options.m_guiHelper, properties, units_per_m, config);
 }
 
 B3_STANDALONE_EXAMPLE(CreateFunc)
