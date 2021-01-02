@@ -212,12 +212,12 @@ World : public btDiscreteDynamicsWorld
 protected:
   virtual void predictUnconstraintMotion(btScalar timeStep) BT_OVERRIDE
   {
-    auto __profile = ProfileZone(__FUNCTION__);
+    //auto __profile = ProfileZone(__FUNCTION__);
     ParentClass::predictUnconstraintMotion(timeStep);
   }
   virtual void createPredictiveContacts(btScalar timeStep) BT_OVERRIDE
   {
-    auto __profile = ProfileZone(__FUNCTION__);
+    //auto __profile = ProfileZone(__FUNCTION__);
     ParentClass::createPredictiveContacts(timeStep);
   }
 
@@ -228,25 +228,37 @@ protected:
 
   virtual void performDiscreteCollisionDetection() BT_OVERRIDE
   {
-    auto __profile = ProfileZone(__FUNCTION__);
+    //auto __profile = ProfileZone(__FUNCTION__);
     ParentClass::performDiscreteCollisionDetection();
+  }
+
+  virtual void updateAabbs() BT_OVERRIDE
+  {
+    auto __profile = ProfileZone(__FUNCTION__);
+    ParentClass::updateAabbs();
+  }
+
+  virtual void computeOverlappingPairs() BT_OVERRIDE
+  {
+    auto __profile = ProfileZone(__FUNCTION__);
+    ParentClass::computeOverlappingPairs();
   }
 
   virtual void calculateSimulationIslands() BT_OVERRIDE
   {
-    auto __profile = ProfileZone(__FUNCTION__);
+    //auto __profile = ProfileZone(__FUNCTION__);
     ParentClass::calculateSimulationIslands();
   }
 
   virtual void integrateTransforms(btScalar timeStep) BT_OVERRIDE
   {
-    auto __profile = ProfileZone(__FUNCTION__);
+    //auto __profile = ProfileZone(__FUNCTION__);
     ParentClass::integrateTransforms(timeStep);
   }
 
   virtual void updateActions(btScalar timeStep) BT_OVERRIDE
   {
-    auto __profile = ProfileZone(__FUNCTION__);
+    //auto __profile = ProfileZone(__FUNCTION__);
     ParentClass::updateActions(timeStep);
   }
 
@@ -269,18 +281,34 @@ WorldMt : public btDiscreteDynamicsWorldMt
 protected:
   virtual void predictUnconstraintMotion(btScalar timeStep) BT_OVERRIDE
   {
-    auto __profile = ProfileZone(__FUNCTION__);
+    //auto __profile = ProfileZone(__FUNCTION__);
     ParentClass::predictUnconstraintMotion(timeStep);
   }
   virtual void createPredictiveContacts(btScalar timeStep) BT_OVERRIDE
   {
-    auto __profile = ProfileZone(__FUNCTION__);
+    //auto __profile = ProfileZone(__FUNCTION__);
     ParentClass::createPredictiveContacts(timeStep);
   }
   virtual void integrateTransforms(btScalar timeStep) BT_OVERRIDE
   {
-    auto __profile = ProfileZone(__FUNCTION__);
+    //auto __profile = ProfileZone(__FUNCTION__);
     ParentClass::integrateTransforms(timeStep);
+  }
+  virtual void updateAabbs() BT_OVERRIDE
+  {
+    auto __profile = ProfileZone(__FUNCTION__);
+    ParentClass::updateAabbs();
+  }
+
+  virtual void computeOverlappingPairs() BT_OVERRIDE
+  {
+    auto __profile = ProfileZone(__FUNCTION__);
+    ParentClass::computeOverlappingPairs();
+  }
+
+  virtual void solveConstraints(btContactSolverInfo & solverInfo) {
+    auto __profile = ProfileZone(__FUNCTION__);
+    ParentClass::solveConstraints(solverInfo);
   }
 
 public:
@@ -288,7 +316,7 @@ public:
   virtual int stepSimulation(btScalar timeStep, int maxSubSteps,
                              btScalar fixedTimeStep) BT_OVERRIDE
   {
-    auto __profile = ProfileZone(__FUNCTION__);
+    //auto __profile = ProfileZone(__FUNCTION__);
     return ParentClass::stepSimulation(timeStep, maxSubSteps, fixedTimeStep);
   }
   using ParentClass = btDiscreteDynamicsWorldMt;
