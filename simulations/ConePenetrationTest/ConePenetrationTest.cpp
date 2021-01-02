@@ -291,6 +291,10 @@ void ConePenetrationTest::initPhysics()
 	std::cout<<"Creating initial grains: "<<grains.size()<<std::endl;
 	addInitialGrains();
 	std::cout<<"Initial grains count: "<<grains.size()<<std::endl;
+	// thershold is squared distance. Also should be proportional to grains
+	auto max_error_ratio = utils::try_get(config["simulation"]["solver"]["max_error_ratio"], 1.);
+	auto threshold = std::pow(regolith.properties.minRadius*max_error_ratio, 2)*grains.size();
+	m_dynamicsWorld->getSolverInfo().m_leastSquaresResidualThreshold = threshold;
 
 	// initialize graphics
 	m_guiHelper->autogenerateGraphicsObjects(m_dynamicsWorld);
@@ -481,8 +485,10 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 			simprof::Manager::start("Additional logic");
 		}
 		auto solver = static_cast<btSequentialImpulseConstraintSolver*>(m_solver);
-		std::cout<<solver->m_analyticsData.m_remainingLeastSquaresResidual<<std::endl;
-		std::cout<<solver->m_analyticsData.m_numIterationsUsed<<std::endl;
+		std::cout<<"iterations: "<<solver->m_analyticsData.m_numIterationsUsed<<std::endl;
+		std::cout<<"residual: "<<solver->m_analyticsData.m_remainingLeastSquaresResidual<<std::endl;
+		std::cout<<"residual per grain: "<<solver->m_analyticsData.m_remainingLeastSquaresResidual/grains.size()<<std::endl;
+		std::cout<<"rescaled residual per grain: "<<solver->m_analyticsData.m_remainingLeastSquaresResidual/grains.size()/units_per_m/units_per_m<<std::endl;
 		auto current = steady_clock::now();
 		auto elapsed = current - last;
 		last = current;
@@ -537,8 +543,13 @@ void ConePenetrationTest::addInitialGrains() {
 
 	PG::SpherePack* pack = new PG::SpherePack();
 	PG::SpherePackStat result = PG::GenerateSpherePack(container, ng, &dom, pack);
-
+	std::cout<<pack->s.size()<<std::endl;
+	grains.reserve(pack->s.size());
+	m_dynamicsWorld->getNonStaticRigidBodies().reserve(pack->s.size());
 	for(auto s: pack->s) {
+		if (grains.size() % 100 == 0) {
+			std::cout<<grains.size()<<std::endl;
+		}
 		btTransform transform;
 		transform.setIdentity();
 		transform.setOrigin(btVector3(s.x, s.y, s.z));
