@@ -1,7 +1,7 @@
 simulation:
   big_step: 0.05
   profile_level: 2
-  small_steps_per_second: 360
+  small_steps_per_second: 120
   initialization:
     v2_thershold: 0.005
     squishing_factor: 1.01
@@ -10,7 +10,8 @@ simulation:
   penetration:
     big_step: 0.05
   solver:
-    iterations: 1000
+    iterations: 100
+    max_error_ratio: .5
   gravity: -10.
   broadphase: "axis"
   threads: 8
@@ -40,8 +41,8 @@ regolith:
   rollingFriction: 1.
 
   # radii in m
-  maxRadius: 0.045
-  minRadius: 0.03
+  maxRadius: 0.025
+  minRadius: 0.015
   # Below values in kg/m^3
 
   # Calculated assuming water density 997
