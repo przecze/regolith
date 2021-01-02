@@ -4,11 +4,14 @@ simulation:
   small_steps_per_second: 360
   initialization:
     v2_thershold: 0.005
+  pressure:
+    plate_v_thershold: 0.08
   penetration:
     big_step: 0.2
-  gravity: 10.
+  gravity: -10.
   broadphase: "axis"
   threads: 8
+  units_per_m: 1.
 
 box:
   diameter: 1.2
@@ -20,13 +23,14 @@ probe:
   radius: 0.035
   mass: 500.
   friction: 1.
-  restitution: 0.
+  restitution: 0.3
 
 pressure:
   value: 60000
   plate_thickness: 0.1
 
 regolith:
+  units_per_m: 1.
   # physics properties
   restitution: 0.3
   friction: 0.35
