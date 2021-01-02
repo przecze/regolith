@@ -114,7 +114,7 @@ class Manager {
 		current_node->dumpRecursive(out);
 	}
 
-	static nlohmann::json dump_json() {
+	static nlohmann::json dumpJson() {
 		return current_node->dumpRecursiveJson();
   }
 };
