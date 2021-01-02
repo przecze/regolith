@@ -513,8 +513,8 @@ void ConePenetrationTest::addInitialGrains() {
 		sizes[i] = regolith.grain_radii[i];
 	}
 	PG::NG* ng = new PG::GeneralNG(sizes,
-                                 p,
-                                 sizes_count);
+	                               p,
+	                               sizes_count);
 	//std::cout<<BOX_H<<std::endl;
 	//std::cout<<BOX_DIAMETER<<std::endl;
 	//std::cout<<regolith.properties.minRadius<<std::endl;
@@ -524,8 +524,8 @@ void ConePenetrationTest::addInitialGrains() {
 
 	PG::Grid3d dom;
 	PG::Container* container = new PG::Cylinder({0.0, 0.0, 0.0},
-                                              {0.0, BOX_H, 0.0},
-                                              BOX_DIAMETER/2.);
+	                                            {0.0, BOX_H, 0.0},
+ 	                                            BOX_DIAMETER/2.);
 
 	PG::SpherePack* pack = new PG::SpherePack();
 	PG::SpherePackStat result = PG::GenerateSpherePack(container, ng, &dom, pack);
