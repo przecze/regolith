@@ -4,6 +4,7 @@ simulation:
   small_steps_per_second: 360
   initialization:
     v2_thershold: 0.005
+    squishing_factor: 1.01
   pressure:
     plate_v_thershold: 0.08
   penetration:
