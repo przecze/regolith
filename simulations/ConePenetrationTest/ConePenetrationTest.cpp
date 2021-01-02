@@ -504,13 +504,13 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 }
 
 void ConePenetrationTest::addInitialGrains() {
-
-  auto sizes_count = regolith.grain_radii.size();
+	auto sizes_count = regolith.grain_radii.size();
 	double sizes[sizes_count];
-  double p[sizes_count];
+	double p[sizes_count];
+	auto squishing_factor = utils::try_get(config["simulation"]["initialization"]["squishing_factor"], 1.);
 	for (int i = 0; i<sizes_count; ++i) {
 		p[i] = 1./sizes_count;
-		sizes[i] = regolith.grain_radii[i];
+		sizes[i] = regolith.grain_radii[i]/squishing_factor;
 	}
 	PG::NG* ng = new PG::GeneralNG(sizes,
 	                               p,
@@ -534,7 +534,7 @@ void ConePenetrationTest::addInitialGrains() {
 		btTransform transform;
 		transform.setIdentity();
 		transform.setOrigin(btVector3(s.x, s.y, s.z));
-		auto grain = regolith.createGrain(this, transform, s.r);
+		auto grain = regolith.createGrain(this, transform, s.r*squishing_factor);
 		grains.push_back(grain);
 	}
 }
