@@ -241,7 +241,8 @@ void ConePenetrationTest::createEmptyDynamicsWorld() {
 		//m_dynamicsWorld->setInternalTickCallback(profileEndCallback, NULL, false);
 	}
 
-	m_dynamicsWorld->setGravity(btVector3(0, -10, 0));
+	auto gravity = utils::try_get<double>(config["simulation"]["gravity"], -10.);
+	m_dynamicsWorld->setGravity(btVector3(0, gravity, 0));
 }
 
 void ConePenetrationTest::initPhysics()

@@ -1,11 +1,14 @@
 simulation:
   big_step: 0.2
-  profile_level: 2
-  small_steps_per_second: 480
+  profile_level: 0
+  small_steps_per_second: 360
+  initialization:
+    v2_thershold: 0.005
   penetration:
     big_step: 0.2
+  gravity: 10.
   broadphase: "axis"
-  threads: 1
+  threads: 8
 
 box:
   diameter: 1.2
@@ -14,8 +17,10 @@ box:
 
 probe:
   velocity: -.1
-  radius: 0.07
-  mass: 1000.
+  radius: 0.035
+  mass: 500.
+  friction: 1.
+  restitution: 0.
 
 pressure:
   value: 60000
@@ -23,14 +28,13 @@ pressure:
 
 regolith:
   # physics properties
-  restitution: 0.01
-  friction: 0.99
+  restitution: 0.3
+  friction: 0.35
   rollingFriction: 1.
 
   # radii in m
-  maxRadius: 0.06
+  maxRadius: 0.045
   minRadius: 0.03
-
   # Below values in kg/m^3
 
   # Calculated assuming water density 997
