@@ -411,7 +411,7 @@ void ConePenetrationTest::stepPressurePhase()
 		auto expectedMeasuredResistance = expectedResistance/correctionFactor;
 		std::cout<<"correctionFactor: "<<correctionFactor<<std::endl;
 		//std::cout<<"correctionFactorold: "<<correction_factor_old(relativeDensity, Rd)<<std::endl;
-		std::cout<<"expected resistance to be measured: "<<expectedResistance<<std::endl;
+		std::cout<<"expected resistance to be measured: "<<expectedResistance*units_per_m*units_per_m<<std::endl;
 		update_time = config["simulation"]["penetration"]["big_step"].as<double>();
 	}
 }
