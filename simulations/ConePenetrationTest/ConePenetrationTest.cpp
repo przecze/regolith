@@ -227,6 +227,7 @@ void ConePenetrationTest::createEmptyDynamicsWorld() {
 			btGetTaskScheduler()->setNumThreads(maxThreadCount);
 		}
 		auto solverMt = create<SolverMt>(profile_level > 1);
+		m_solver = solverMt;
 		m_dynamicsWorld = create<WorldMt>(profile_level > 1, m_dispatcher, m_broadphase, solverPool,
 		                                            solverMt, m_collisionConfiguration);
 	} else {
@@ -238,6 +239,8 @@ void ConePenetrationTest::createEmptyDynamicsWorld() {
 		m_dynamicsWorld = create<World>(profile_level > 1, m_dispatcher, m_broadphase, m_solver,
 		                                          m_collisionConfiguration);
 	}
+	auto iterations = utils::try_get(config["simulation"]["solver"]["iterations"], 10);
+	m_dynamicsWorld->getSolverInfo().m_numIterations = iterations;
 
 	if (profile_level > 0) {
 		//m_dynamicsWorld->setInternalTickCallback(profileBeginCallback, NULL, true);
@@ -285,6 +288,7 @@ void ConePenetrationTest::initPhysics()
 	tower->setRollingFriction(utils::try_get<double>(config["box"]["rolling_friction"], 0.));
 
 	// add initial grains
+	std::cout<<"Creating initial grains: "<<grains.size()<<std::endl;
 	addInitialGrains();
 	std::cout<<"Initial grains count: "<<grains.size()<<std::endl;
 
@@ -313,6 +317,7 @@ void ConePenetrationTest::stepStabilizationPhase()
 	auto total_v2 = resetVelocities();
 	auto v2_thershold = utils::try_get<double>(config["simulation"]["initialization"]["v2_thershold"],
 	                                           0.001)*units_per_m*units_per_m;
+	std::cout<<"total v2: "<<total_v2/units_per_m/units_per_m<<"; v2 per grain:"<<total_v2/grains.size()/units_per_m/units_per_m<<std::endl;
 	if (total_v2 / grains.size() < v2_thershold) {
 	  phase=PRESSURE_PHASE;
 	  //rescaleTime(4.);
@@ -436,7 +441,7 @@ void ConePenetrationTest::stepPenetrationPhase(int steps_since_last_update, doub
 	auto momentumChange = velocity_change*mass;
 	auto resistanceForce = (momentumChange)/(steps_since_last_update*dt);
 	auto resistance = resistanceForce / (probeRadius*probeRadius*SIMD_PI);
-	std::cout<<"y: "<<y<<" resistance: "<<resistance*units_per_m*units_per_m<<std::endl;
+	std::cout<<"y: "<<y/units_per_m<<" resistance: "<<resistance*units_per_m*units_per_m<<std::endl;
   if (y<BOX_H/4.) {
     phase = FINISHED_PHASE;
   }
@@ -475,6 +480,9 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 		if (profile_level > 0) {
 			simprof::Manager::start("Additional logic");
 		}
+		auto solver = static_cast<btSequentialImpulseConstraintSolver*>(m_solver);
+		std::cout<<solver->m_analyticsData.m_remainingLeastSquaresResidual<<std::endl;
+		std::cout<<solver->m_analyticsData.m_numIterationsUsed<<std::endl;
 		auto current = steady_clock::now();
 		auto elapsed = current - last;
 		last = current;

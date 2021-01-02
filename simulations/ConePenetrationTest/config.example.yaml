@@ -1,5 +1,5 @@
 simulation:
-  big_step: 0.2
+  big_step: 0.05
   profile_level: 2
   small_steps_per_second: 360
   initialization:
@@ -8,11 +8,13 @@ simulation:
   pressure:
     plate_v_thershold: 0.08
   penetration:
-    big_step: 0.2
+    big_step: 0.05
+  solver:
+    iterations: 1000
   gravity: -10.
   broadphase: "axis"
   threads: 8
-  units_per_m: 20.
+  units_per_m: 100.
 
 box:
   diameter: 1.2
@@ -31,7 +33,7 @@ pressure:
   plate_thickness: 0.1
 
 regolith:
-  units_per_m: 20.
+  units_per_m: 100.
   # physics properties
   restitution: 0.3
   friction: 0.35
