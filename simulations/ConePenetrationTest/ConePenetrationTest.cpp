@@ -57,12 +57,12 @@ namespace utils = regolith::utils;
 class OverlapReporter : public btOverlappingPairCallback {
   std::vector<std::pair<btBroadphaseProxy*, btBroadphaseProxy*>> pairs;
 	btBroadphasePair* addOverlappingPair(btBroadphaseProxy* proxy0, btBroadphaseProxy* proxy1) override {
-		auto __profile = profiled::ProfileZone(__FUNCTION__);
+		//auto __profile = profiled::ProfileZone(__FUNCTION__);
 		pairs.push_back(std::make_pair(proxy0, proxy1));
   }
 
 	void* removeOverlappingPair(btBroadphaseProxy* proxy0, btBroadphaseProxy* proxy1, btDispatcher* dispatcher) override {
-		auto __profile = profiled::ProfileZone(__FUNCTION__);
+		//auto __profile = profiled::ProfileZone(__FUNCTION__);
 		pairs.erase(std::remove_if(pairs.begin(), pairs.end(), [=](auto x) {return (proxy0 == x.first and proxy1 == x.second) or (proxy0 == x.first and proxy1 == x.second); }));
 	}
 
@@ -146,7 +146,7 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 	int removeGrains();
 	void addGrains(int layers);
 	void addInitialGrains();
-	void resetVelocities();
+	double resetVelocities();
 
 	void stepStabilizationPhase();
 	void stepPressurePhase();
@@ -237,8 +237,8 @@ void ConePenetrationTest::createEmptyDynamicsWorld() {
 	}
 
 	if (profile_level > 0) {
-		m_dynamicsWorld->setInternalTickCallback(profileBeginCallback, NULL, true);
-		m_dynamicsWorld->setInternalTickCallback(profileEndCallback, NULL, false);
+		//m_dynamicsWorld->setInternalTickCallback(profileBeginCallback, NULL, true);
+		//m_dynamicsWorld->setInternalTickCallback(profileEndCallback, NULL, false);
 	}
 
 	m_dynamicsWorld->setGravity(btVector3(0, -10, 0));
@@ -306,9 +306,11 @@ void ConePenetrationTest::renderScene()
 
 void ConePenetrationTest::stepStabilizationPhase()
 {
-	int removed = removeGrains();
-	resetVelocities();
-	if(removed == 0) {
+	//int removed = removeGrains();
+	auto total_v2 = resetVelocities();
+	auto v2_thershold = utils::try_get<double>(config["simulation"]["initialization"]["v2_thershold"],
+	                                           0.001);
+	if (total_v2 / grains.size() < v2_thershold) {
 	  phase=PRESSURE_PHASE;
 	  //rescaleTime(4.);
 	  std::cout<<"Entering PRESSURE_PHASE"<<std::endl;
@@ -366,7 +368,7 @@ void ConePenetrationTest::reportErrorByY()
 
 void ConePenetrationTest::stepPressurePhase()
 {
-	removeGrains();
+	//removeGrains();
 	//reportErrorByY();
 	auto plate_y = pressurePlate->getWorldTransform().getOrigin().getY();
 	auto plate_v = pressurePlate->getLinearVelocity().getY();
@@ -430,7 +432,7 @@ void ConePenetrationTest::stepPenetrationPhase(int steps_since_last_update, doub
 	auto resistanceForce = (momentumChange)/(steps_since_last_update*dt);
 	auto resistance = resistanceForce / (probeRadius*probeRadius*SIMD_PI);
 	std::cout<<"y: "<<y<<" resistance: "<<resistance<<std::endl;
-  if (y<BOX_H/5.) {
+  if (y<BOX_H/4.) {
     phase = FINISHED_PHASE;
   }
 }
@@ -445,14 +447,23 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 	{
 		// note: stepSimulation doesn't return the actual steps performed, but
 		// deltaTime/dt therefore we disable clamping and ensure only one step is made.
+		if (deltaTime < dt) {
+			return;
+		}
+    simprof::Manager::start("Internal world step");
 		m_dynamicsWorld->stepSimulation(deltaTime, 1, dt);
+    simprof::Manager::stop();
 		steps_since_last_update += 1;
 	}
 
 	// in penetration phase there are things we need to do every step
 	if (phase == PENETRATION_PHASE) {
 		probe_velocity_change += probe->getLinearVelocity().getY()-probeVelocity;
-		probe->setLinearVelocity(btVector3(0., 1.03*probeVelocity, 0.));
+  	//std::cout<<"step end veolocity: "<<probe->getLinearVelocity().getY()<<std::endl;
+  	//std::cout<<"time: "<<deltaTime<<std::endl;
+		probe->setLinearVelocity(btVector3(0., probeVelocity, 0.));
+		probe->setAngularVelocity(btVector3(0., 0., 0.));
+  	//std::cout<<"corrected veolocity: "<<probe->getLinearVelocity().getY()<<std::endl;
 	}
 
 	if(steps_since_last_update*dt > update_time) {
@@ -476,7 +487,8 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 		steps_since_last_update = 0;
 		if (profile_level > 0) {
 			simprof::Manager::stop();
-			auto profiler_dump = simprof::Manager::dump_json();
+			//simprof::Manager::dump(std::cout);
+			auto profiler_dump = simprof::Manager::dumpJson();
   		profiler_dump["phase"] = phase;
 			//std::cout << std::setw(4) << profiler_dump << std::endl;
   		profiler_data["data"].push_back(profiler_dump);
@@ -533,10 +545,13 @@ int ConePenetrationTest::removeGrains() {
 	return removed;
 }
 
-void ConePenetrationTest::resetVelocities() {
+double ConePenetrationTest::resetVelocities() {
+	auto total_v2 = 0.f;
 	for(auto grain: grains) {
+		total_v2 += grain->getLinearVelocity().length2();
 		grain->setLinearVelocity(btVector3(0.,0.,0.));
 	}
+	return total_v2;
 }
 	
 
@@ -544,7 +559,7 @@ void ConePenetrationTest::createProbe() {
 	btCompoundShape* probeShape = new btCompoundShape();
 	btTransform probeTransform;
 
-	btScalar probeH =  1./std::tan(30./360.*SIMD_PI)*probeRadius;
+	btScalar probeH =  1./std::tan(SIMD_PI/6.)*probeRadius;
 	btConeShape* tipShape = new btConeShape(probeRadius, probeH);
 	auto rot = btQuaternion(btVector3(1.,0.,0.), SIMD_PI);
 	probeTransform.setRotation(rot);
@@ -559,13 +574,16 @@ void ConePenetrationTest::createProbe() {
 
 	m_collisionShapes.push_back(probeShape);
 
-	auto probe_initial_y = pressurePlate->getWorldTransform().getOrigin().getY() + pressurePlateThickness +0.1;
+	auto probe_initial_y = pressurePlate->getWorldTransform().getOrigin().getY() - probeH/2;
 	probeTransform.setOrigin(btVector3(0., probe_initial_y, 0.));
 	
 	auto probeMass = config["probe"]["mass"].as<double>();
 	probe = createRigidBody(probeMass, probeTransform, probeShape);
 	probe->setLinearVelocity(btVector3{0., probeVelocity, 0.});
 	probe->setIgnoreCollisionCheck(pressurePlate, true);
+	probe->setFriction(utils::try_get<double>(config["probe"]["friction"], 0.));
+	probe->setRestitution(utils::try_get<double>(config["probe"]["restitution"], 0.));
+	probe->setRollingFriction(utils::try_get<double>(config["probe"]["rolling_friction"], 0.));
 	// exclude probe from gravity
 	probe->setGravity(btVector3{0.,0.,0.});
 
@@ -578,7 +596,11 @@ void ConePenetrationTest::createPressurePlate() {
 	auto pressurePlateShape = new btCylinderShape{btVector3{BOX_DIAMETER/2. - margin, pressurePlateThickness, BOX_DIAMETER/2. - margin}};
 	auto plateTransform = btTransform{};
 	plateTransform.setIdentity();
-	plateTransform.setOrigin(btVector3(0., BOX_H + pressurePlateThickness/2. + 2*regolith.properties.maxRadius , 0.));
+  btScalar max_y = -1.;
+	for (auto grain: grains) {
+		max_y = std::max(max_y, grain->getWorldTransform().getOrigin().getY());
+	}
+	plateTransform.setOrigin(btVector3(0., max_y + pressurePlateThickness/2. + 2*regolith.properties.maxRadius , 0.));
 	m_collisionShapes.push_back(pressurePlateShape);
 	auto plateMass = pressure*(BOX_DIAMETER/2.1*BOX_DIAMETER/2.1*SIMD_PI)/(-m_dynamicsWorld->getGravity().getY());
 	std::cout<<"plate mass: "<<plateMass<<std::endl;
