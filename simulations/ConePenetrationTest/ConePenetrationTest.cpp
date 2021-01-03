@@ -147,7 +147,6 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 	void createPressurePlate();
 
 	int removeGrains();
-	void addGrains(int layers);
 	void addInitialGrains();
 	double resetVelocities();
 
@@ -178,7 +177,6 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 		auto j = nlohmann::json();
 		j["data"] = nlohmann::json::array();
 		return j;}();
-	std::vector<btRigidBody*> grains;
 	OverlapReporter overlapReporter = OverlapReporter{};
 };
 
@@ -288,22 +286,22 @@ void ConePenetrationTest::initPhysics()
 	tower->setRollingFriction(utils::try_get<double>(config["box"]["rolling_friction"], 0.));
 
 	// add initial grains
-	std::cout<<"Creating initial grains: "<<grains.size()<<std::endl;
+	std::cout<<"Creating initial grains: "<<regolith.grains.size()<<std::endl;
 	addInitialGrains();
-	std::cout<<"Initial grains count: "<<grains.size()<<std::endl;
+	std::cout<<"Initial grains count: "<<regolith.grains.size()<<std::endl;
 	// thershold is squared distance. Also should be proportional to grains
 	auto max_error_ratio = utils::try_get(config["simulation"]["solver"]["max_error_ratio"], 1.);
-	auto threshold = std::pow(regolith.properties.minRadius*max_error_ratio, 2)*grains.size();
+	auto threshold = std::pow(regolith.properties.minRadius*max_error_ratio, 2)*regolith.grains.size();
 	m_dynamicsWorld->getSolverInfo().m_leastSquaresResidualThreshold = threshold;
 
 	// initialize graphics
 	m_guiHelper->autogenerateGraphicsObjects(m_dynamicsWorld);
 
-	for(auto grain: grains) {
-		auto r =dynamic_cast<btSphereShape*>(grain->getCollisionShape())->getRadius();
+	for(auto grain: regolith.grains) {
+		auto r =dynamic_cast<btSphereShape*>(grain.getCollisionShape())->getRadius();
 		auto radius_factor = (regolith.properties.maxRadius - r)/(regolith.properties.maxRadius-regolith.properties.minRadius)*100;
 		const double color[4] = {205./256.,194/256.,(100.+radius_factor)/256.,1.};
-		m_guiHelper->changeRGBAColor(grain->getUserIndex(), color);
+		m_guiHelper->changeRGBAColor(grain.getUserIndex(), color);
 	}
 	const double transparent[4] = {0.,0.,0.,0.05};
 	m_guiHelper->changeRGBAColor(ground->getUserIndex(), transparent);
@@ -321,8 +319,8 @@ void ConePenetrationTest::stepStabilizationPhase()
 	auto total_v2 = resetVelocities();
 	auto v2_thershold = utils::try_get<double>(config["simulation"]["initialization"]["v2_thershold"],
 	                                           0.001)*units_per_m*units_per_m;
-	std::cout<<"total v2: "<<total_v2/units_per_m/units_per_m<<"; v2 per grain:"<<total_v2/grains.size()/units_per_m/units_per_m<<std::endl;
-	if (total_v2 / grains.size() < v2_thershold) {
+	std::cout<<"total v2: "<<total_v2/units_per_m/units_per_m<<"; v2 per grain:"<<total_v2/regolith.grains.size()/units_per_m/units_per_m<<std::endl;
+	if (total_v2 / regolith.grains.size() < v2_thershold) {
 	  phase=PRESSURE_PHASE;
 	  //rescaleTime(4.);
 	  std::cout<<"Entering PRESSURE_PHASE"<<std::endl;
@@ -398,11 +396,11 @@ void ConePenetrationTest::stepPressurePhase()
 		double grains_volume = 0.;
 		auto buckets = 10u;
 
-		for(auto grain: grains) {
-			auto grain_mass = 1./grain->getInvMass();
+		for(auto grain: regolith.grains) {
+			auto grain_mass = 1./grain.getInvMass();
 			grains_mass += grain_mass;
 
-			auto r =dynamic_cast<btSphereShape*>(grain->getCollisionShape())->getRadius();
+			auto r =dynamic_cast<btSphereShape*>(grain.getCollisionShape())->getRadius();
 			auto grain_volume = 4./3.*SIMD_PI*r*r*r;
 
 			grains_volume += grain_volume;
@@ -487,8 +485,8 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 		auto solver = static_cast<btSequentialImpulseConstraintSolver*>(m_solver);
 		std::cout<<"iterations: "<<solver->m_analyticsData.m_numIterationsUsed<<std::endl;
 		std::cout<<"residual: "<<solver->m_analyticsData.m_remainingLeastSquaresResidual<<std::endl;
-		std::cout<<"residual per grain: "<<solver->m_analyticsData.m_remainingLeastSquaresResidual/grains.size()<<std::endl;
-		std::cout<<"rescaled residual per grain: "<<solver->m_analyticsData.m_remainingLeastSquaresResidual/grains.size()/units_per_m/units_per_m<<std::endl;
+		std::cout<<"residual per grain: "<<solver->m_analyticsData.m_remainingLeastSquaresResidual/regolith.grains.size()<<std::endl;
+		std::cout<<"rescaled residual per grain: "<<solver->m_analyticsData.m_remainingLeastSquaresResidual/regolith.grains.size()/units_per_m/units_per_m<<std::endl;
 		auto current = steady_clock::now();
 		auto elapsed = current - last;
 		last = current;
@@ -544,43 +542,44 @@ void ConePenetrationTest::addInitialGrains() {
 	PG::SpherePack* pack = new PG::SpherePack();
 	PG::SpherePackStat result = PG::GenerateSpherePack(container, ng, &dom, pack);
 	std::cout<<pack->s.size()<<std::endl;
-	grains.reserve(pack->s.size());
+	regolith.grains.reserve(pack->s.size());
+	regolith.motion_states.reserve(pack->s.size());
 	m_dynamicsWorld->getNonStaticRigidBodies().reserve(pack->s.size());
 	for(auto s: pack->s) {
-		if (grains.size() % 100 == 0) {
-			std::cout<<grains.size()<<std::endl;
+		if (regolith.grains.size() % 100 == 0) {
+			std::cout<<regolith.grains.size()<<std::endl;
 		}
 		btTransform transform;
 		transform.setIdentity();
 		transform.setOrigin(btVector3(s.x, s.y, s.z));
-		auto grain = regolith.createGrain(this, transform, s.r*squishing_factor);
-		grains.push_back(grain);
+		auto grain = regolith.createGrain(transform, s.r*squishing_factor);
+    m_dynamicsWorld->addRigidBody(grain);
 	}
 }
 
 int ConePenetrationTest::removeGrains() {
 	const double transparent[4] = {0.,0.,0.,0.};
 	int removed = 0;
-	for(auto it = grains.begin(); it != grains.end();) {
-		auto pos = (*it)->getWorldTransform().getOrigin();
-		if(pos.getY() > BOX_H) {
-			++removed;
-			m_guiHelper->changeRGBAColor((*it)->getUserIndex(), transparent);
-			m_dynamicsWorld->removeRigidBody(*it);
-			it = grains.erase(it);
-		} else {
-			++it;
-		}
-	}
+	//for(auto it = grains.begin(); it != grains.end();) {
+	//	auto pos = (*it)->getWorldTransform().getOrigin();
+	//	if(pos.getY() > BOX_H) {
+	//		++removed;
+	//		m_guiHelper->changeRGBAColor((*it)->getUserIndex(), transparent);
+	//		m_dynamicsWorld->removeRigidBody(*it);
+	//		it = grains.erase(it);
+	//	} else {
+	//		++it;
+	//	}
+	//}
 	std::cout<<"REMOVED: "<<removed<<std::endl;
 	return removed;
 }
 
 double ConePenetrationTest::resetVelocities() {
 	auto total_v2 = 0.f;
-	for(auto grain: grains) {
-		total_v2 += grain->getLinearVelocity().length2();
-		grain->setLinearVelocity(btVector3(0.,0.,0.));
+	for(auto grain: regolith.grains) {
+		total_v2 += grain.getLinearVelocity().length2();
+		grain.setLinearVelocity(btVector3(0.,0.,0.));
 	}
 	return total_v2;
 }
@@ -628,8 +627,8 @@ void ConePenetrationTest::createPressurePlate() {
 	auto plateTransform = btTransform{};
 	plateTransform.setIdentity();
   btScalar max_y = -1.;
-	for (auto grain: grains) {
-		max_y = std::max(max_y, grain->getWorldTransform().getOrigin().getY());
+	for (auto grain: regolith.grains) {
+		max_y = std::max(max_y, grain.getWorldTransform().getOrigin().getY());
 	}
 	plateTransform.setOrigin(btVector3(0., max_y + pressurePlateThickness/2. + 2*regolith.properties.maxRadius , 0.));
 	m_collisionShapes.push_back(pressurePlateShape);

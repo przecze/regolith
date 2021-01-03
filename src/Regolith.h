@@ -7,6 +7,8 @@
 #include <string>
 
 namespace regolith {
+
+
 struct RegolithProperties {
 	btScalar maxRadius;
 	btScalar minRadius;
@@ -23,14 +25,14 @@ RegolithProperties loadPropertiesFromFile(std::string filename);
 
 class Regolith {
 	public:
-	btRigidBody* createGrain(CommonRigidBodyBase* base, btTransform& transform);
-	btRigidBody* createGrain(CommonRigidBodyBase* base, btTransform& transform, double r);
-	btRigidBody* createGrainFromIndex(CommonRigidBodyBase* base,
-	                                  btTransform& transform,
-	                                  int index);
+	btRigidBody* createGrain(btTransform& transform);
+	btRigidBody* createGrain(btTransform& transform, double r);
+	btRigidBody* createGrainFromIndex(btTransform& transform, int index);
 	const RegolithProperties properties;
 	Regolith(RegolithProperties, unsigned int shapes_count = 10);
 	std::vector<double> grain_radii;
+	std::vector<btRigidBody> grains;
+	std::vector<btDefaultMotionState> motion_states;
 	private:
 	std::vector<btCollisionShape*> collision_shapes;
 	std::vector<btScalar> grain_masses;
