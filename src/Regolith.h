@@ -26,8 +26,8 @@ RegolithProperties loadPropertiesFromFile(std::string filename);
 class Regolith {
 	public:
 	btRigidBody* createGrain(btTransform& transform);
-	btRigidBody* createGrain(btTransform& transform, double r);
-	btRigidBody* createGrainFromIndex(btTransform& transform, int index);
+	btRigidBody* createGrain(btTransform& transform, double r, int index);
+	btRigidBody* createGrainFromIndex(btTransform& transform, int shape_index, int index);
 	const RegolithProperties properties;
 	Regolith(RegolithProperties, unsigned int shapes_count = 10);
 	std::vector<double> grain_radii;

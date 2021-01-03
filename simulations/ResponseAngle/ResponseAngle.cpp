@@ -103,7 +103,7 @@ void ResponseAngle::initPhysics()
 		btTransform transform;
 		transform.setIdentity();
 		transform.setOrigin(btVector3(s.x, s.y, s.z));
-		regolith.createGrain(transform, s.r);
+		regolith.createGrain(transform, s.r, 0);
 	}
 
   // TODO : is it required for sth?
