@@ -4,13 +4,15 @@ simulation:
   small_steps_per_second: 120
   initialization:
     v2_thershold: 0.005
-    squishing_factor: 1.01
+    squishing_factor: 1.00
+    save_file: grains.txt
+    #from_file: grains.txt
   pressure:
     plate_v_thershold: 0.08
   penetration:
     big_step: 0.05
   solver:
-    iterations: 100
+    iterations: 200
     max_error_ratio: .5
   gravity: -10.
   broadphase: "axis"
@@ -41,8 +43,8 @@ regolith:
   rollingFriction: 1.
 
   # radii in m
-  maxRadius: 0.025
-  minRadius: 0.015
+  maxRadius: 0.04
+  minRadius: 0.03
   # Below values in kg/m^3
 
   # Calculated assuming water density 997

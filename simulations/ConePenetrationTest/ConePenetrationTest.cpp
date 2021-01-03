@@ -319,12 +319,26 @@ void ConePenetrationTest::stepStabilizationPhase()
 	auto total_v2 = resetVelocities();
 	auto v2_thershold = utils::try_get<double>(config["simulation"]["initialization"]["v2_thershold"],
 	                                           0.001)*units_per_m*units_per_m;
-	std::cout<<"total v2: "<<total_v2/units_per_m/units_per_m<<"; v2 per grain:"<<total_v2/regolith.grains.size()/units_per_m/units_per_m<<std::endl;
-	if (total_v2 / regolith.grains.size() < v2_thershold) {
-	  phase=PRESSURE_PHASE;
-	  //rescaleTime(4.);
-	  std::cout<<"Entering PRESSURE_PHASE"<<std::endl;
-	  createPressurePlate();
+	auto v2_per_grain = total_v2/regolith.grains.size();
+	std::cout<<"total v2: "<<total_v2/units_per_m/units_per_m<<"; v2 per grain:"<<v2_per_grain/units_per_m/units_per_m<<std::endl;
+	if (v2_per_grain < v2_thershold) {
+		if (config["simulation"]["initialization"]["save_file"]) {
+			auto f = std::ofstream(config["simulation"]["initialization"]["save_file"].as<std::string>());
+			f << std::setprecision(20);
+			for (auto grain: regolith.grains) {
+				auto pos = grain.getWorldTransform().getOrigin();
+				auto r =dynamic_cast<btSphereShape*>(grain.getCollisionShape())->getRadius();
+				f << pos.getX()/units_per_m << ' ';
+				f << pos.getY()/units_per_m << ' ';
+				f << pos.getZ()/units_per_m << ' ';
+				f << r/units_per_m << '\n';
+			}
+			f << std::flush;
+		}
+		phase=PRESSURE_PHASE;
+		//rescaleTime(4.);
+		std::cout<<"Entering PRESSURE_PHASE"<<std::endl;
+		createPressurePlate();
 	}
 }
 
@@ -516,36 +530,46 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 }
 
 void ConePenetrationTest::addInitialGrains() {
-	auto sizes_count = regolith.grain_radii.size();
-	double sizes[sizes_count];
-	double p[sizes_count];
-	auto squishing_factor = utils::try_get(config["simulation"]["initialization"]["squishing_factor"], 1.);
-	for (int i = 0; i<sizes_count; ++i) {
-		p[i] = 1./sizes_count;
-		sizes[i] = regolith.grain_radii[i]/squishing_factor;
+	auto pack = PG::SpherePack();
+	auto squishing_factor = utils::try_get(config["simulation"]["initialization"]["squishing_factor"],
+	                                       1.);
+	if (config["simulation"]["initialization"]["from_file"]) {
+		auto f = std::ifstream(config["simulation"]["initialization"]["from_file"].as<std::string>());
+		double x, y, z, r;
+		while (f >> x >> y >> z >> r) {
+			std::cout<<x<<" "<<y<<" "<<z<<" "<<r<<std::endl;
+			pack.s.emplace_back(x*units_per_m, y*units_per_m, z*units_per_m, r*units_per_m);
+		}
 	}
-	PG::NG* ng = new PG::GeneralNG(sizes,
-	                               p,
-	                               sizes_count);
-	//std::cout<<BOX_H<<std::endl;
-	//std::cout<<BOX_DIAMETER<<std::endl;
-	//std::cout<<regolith.properties.minRadius<<std::endl;
-	//std::cout<<regolith.properties.maxRadius<<std::endl;
-	//std::cout<<sizes[0]<<std::endl;
-	//std::cout<<sizes[sizes_count-1]<<std::endl;
+	else {
+		auto sizes_count = regolith.grain_radii.size();
+		double sizes[sizes_count];
+		double p[sizes_count];
+		for (int i = 0; i<sizes_count; ++i) {
+			p[i] = 1./sizes_count;
+			sizes[i] = regolith.grain_radii[i]/squishing_factor;
+		}
+		PG::NG* ng = new PG::GeneralNG(sizes,
+		                               p,
+		                               sizes_count);
+		//std::cout<<BOX_H<<std::endl;
+		//std::cout<<BOX_DIAMETER<<std::endl;
+		//std::cout<<regolith.properties.minRadius<<std::endl;
+		//std::cout<<regolith.properties.maxRadius<<std::endl;
+		//std::cout<<sizes[0]<<std::endl;
+		//std::cout<<sizes[sizes_count-1]<<std::endl;
 
-	PG::Grid3d dom;
-	PG::Container* container = new PG::Cylinder({0.0, 0.0, 0.0},
-	                                            {0.0, BOX_H, 0.0},
- 	                                            BOX_DIAMETER/2.);
+		PG::Grid3d dom;
+		PG::Container* container = new PG::Cylinder({0.0, 0.0, 0.0},
+		                                            {0.0, BOX_H, 0.0},
+		                                            BOX_DIAMETER/2.);
 
-	PG::SpherePack* pack = new PG::SpherePack();
-	PG::SpherePackStat result = PG::GenerateSpherePack(container, ng, &dom, pack);
-	std::cout<<pack->s.size()<<std::endl;
-	regolith.grains.reserve(pack->s.size());
-	regolith.motion_states.reserve(pack->s.size());
-	m_dynamicsWorld->getNonStaticRigidBodies().reserve(pack->s.size());
-	for(auto s: pack->s) {
+		PG::SpherePackStat result = PG::GenerateSpherePack(container, ng, &dom, &pack);
+	}
+	regolith.grains.reserve(pack.s.size());
+	regolith.motion_states.reserve(pack.s.size());
+	m_dynamicsWorld->getNonStaticRigidBodies().reserve(pack.s.size());
+	for(auto s: pack.s) {
 		if (regolith.grains.size() % 100 == 0) {
 			std::cout<<regolith.grains.size()<<std::endl;
 		}
