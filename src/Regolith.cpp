@@ -49,40 +49,40 @@ Regolith::Regolith(RegolithProperties properties, unsigned int shapesCount):
 	}
 }
 
-btRigidBody* Regolith::createGrainFromIndex(CommonRigidBodyBase* bodyBase,
-	                                          btTransform& transform,
-	                                          int index) {
+btRigidBody* Regolith::createGrainFromIndex(btTransform& transform, int index) {
 	const auto shape = collision_shapes[index];
+	const auto mass = grain_masses[index];
 
-	// create and configure body
-	auto body = bodyBase->createRigidBody(grain_masses[index],
-	                                      transform,
-	                                      shape,
-	                                      btVector4(0,0,1,1));
-	body->setFriction(properties.friction);
-	body->setRestitution(properties.restitution);
-	body->setRollingFriction(properties.rollingFriction);
-	return body;
+	btVector3 inertia(0, 0, 0);
+	shape->calculateLocalInertia(mass, inertia);
+
+	motion_states.emplace_back(transform);
+	grains.emplace_back(mass, &motion_states.back(), shape, inertia);
+	auto& body = grains.back();
+
+	body.setUserIndex(-1);
+	body.setFriction(properties.friction);
+	body.setRestitution(properties.restitution);
+	body.setRollingFriction(properties.rollingFriction);
+	body.setAngularFactor(0.);
+	return &body;
 }
 
-btRigidBody* Regolith::createGrain(CommonRigidBodyBase* bodyBase,
-	                                 btTransform& transform,
-	                                 double r) {
+btRigidBody* Regolith::createGrain(btTransform& transform, double r) {
 	for(int i = 0; i < grain_radii.size(); ++i) {
 		double known_r = grain_radii[i];
 		if(abs(r - known_r) < (0.0001 * properties.minRadius)) {
-			return createGrainFromIndex(bodyBase, transform, i);
+			return createGrainFromIndex(transform, i);
 		}
 	}
 	throw std::invalid_argument("Value of r not found in known regolith collision shapes");
 }
 
-btRigidBody* Regolith::createGrain(CommonRigidBodyBase* body_base,
-	                                 btTransform& transform) {
+btRigidBody* Regolith::createGrain(btTransform& transform) {
 	// select shape randomly
 	auto random_engine = std::mt19937{std::random_device{}()};
 	auto uniform_distribution = std::uniform_int_distribution<int>{0, int(collision_shapes.size())-1};
 	int selection = uniform_distribution(random_engine);
-	return createGrainFromIndex(body_base, transform, selection);
+	return createGrainFromIndex(transform, selection);
 }
 } // namespace regolith
