@@ -3,6 +3,7 @@
 #include "LinearMath/btAlignedObjectArray.h"
 #include "BulletCollision/CollisionDispatch/btCollisionDispatcherMt.h"
 #include "BulletCollision/CollisionDispatch/btCollisionDispatcher.h"
+#include "BulletCollision/BroadphaseCollision/btAxisSweep3.h"
 #include "BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
 #include "BulletDynamics/Dynamics/btDiscreteDynamicsWorldMt.h"
 #include "BulletDynamics/ConstraintSolver/btSequentialImpulseConstraintSolver.h"
@@ -181,7 +182,7 @@ public:
   }
 };
 
-class AxisSweep: public btAxisSweep3
+class AxisSweep: public bt32BitAxisSweep3
 {
   virtual void calculateOverlappingPairs(btDispatcher* dispatcher)
   {
@@ -189,7 +190,7 @@ class AxisSweep: public btAxisSweep3
     ParentClass::calculateOverlappingPairs(dispatcher);
   }
   public:
-  using ParentClass = btAxisSweep3;
+  using ParentClass = bt32BitAxisSweep3;
   using ParentClass::ParentClass;
 };
 
