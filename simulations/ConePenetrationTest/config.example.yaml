@@ -5,7 +5,7 @@ simulation:
   initialization:
     v2_thershold: 0.005
     squishing_factor: 1.00
-    save_file: grains.txt
+    save_file: 0_025_to_0_0025.txt
     #from_file: grains.txt
   pressure:
     plate_v_thershold: 0.08
@@ -44,7 +44,7 @@ regolith:
 
   # radii in m
   maxRadius: 0.04
-  minRadius: 0.03
+  minRadius: 0.02
   # Below values in kg/m^3
 
   # Calculated assuming water density 997

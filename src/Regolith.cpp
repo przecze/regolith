@@ -49,16 +49,17 @@ Regolith::Regolith(RegolithProperties properties, unsigned int shapesCount):
 	}
 }
 
-btRigidBody* Regolith::createGrainFromIndex(btTransform& transform, int index) {
-	const auto shape = collision_shapes[index];
-	const auto mass = grain_masses[index];
+btRigidBody* Regolith::createGrainFromIndex(btTransform& transform, int shape_index, int index) {
+	const auto shape = collision_shapes[shape_index];
+	const auto mass = grain_masses[shape_index];
 
 	btVector3 inertia(0, 0, 0);
 	shape->calculateLocalInertia(mass, inertia);
 
-	motion_states.emplace_back(transform);
-	grains.emplace_back(mass, &motion_states.back(), shape, inertia);
-	auto& body = grains.back();
+	motion_states[index] = btDefaultMotionState(transform);
+	btRigidBody::btRigidBodyConstructionInfo cInfo(mass, &motion_states[index], shape, inertia);
+	grains[index] = btRigidBody(cInfo);
+	auto& body = grains[index];
 
 	body.setUserIndex(-1);
 	body.setFriction(properties.friction);
@@ -68,11 +69,11 @@ btRigidBody* Regolith::createGrainFromIndex(btTransform& transform, int index) {
 	return &body;
 }
 
-btRigidBody* Regolith::createGrain(btTransform& transform, double r) {
+btRigidBody* Regolith::createGrain(btTransform& transform, double r, int index) {
 	for(int i = 0; i < grain_radii.size(); ++i) {
 		double known_r = grain_radii[i];
 		if(abs(r - known_r) < (0.0001 * properties.minRadius)) {
-			return createGrainFromIndex(transform, i);
+			return createGrainFromIndex(transform, i, index);
 		}
 	}
 	throw std::invalid_argument("Value of r not found in known regolith collision shapes");
@@ -83,6 +84,6 @@ btRigidBody* Regolith::createGrain(btTransform& transform) {
 	auto random_engine = std::mt19937{std::random_device{}()};
 	auto uniform_distribution = std::uniform_int_distribution<int>{0, int(collision_shapes.size())-1};
 	int selection = uniform_distribution(random_engine);
-	return createGrainFromIndex(transform, selection);
+	return createGrainFromIndex(transform, selection, 0);
 }
 } // namespace regolith

@@ -148,6 +148,10 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 
 	int removeGrains();
 	void addInitialGrains();
+	void initGrainsRange(std::vector<PG::Sphere>& spheres,
+	                     unsigned int from, unsigned int to,
+	                     double squishing_factor);
+
 	double resetVelocities();
 
 	void stepStabilizationPhase();
@@ -529,19 +533,32 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 
 }
 
+void ConePenetrationTest::initGrainsRange(std::vector<PG::Sphere>& spheres,
+                                          unsigned int from, unsigned int to,
+                                          double squishing_factor) {
+	for(unsigned int i = from; i < to; ++i) {
+		btTransform transform;
+		transform.setIdentity();
+		auto s = spheres[i];
+		transform.setOrigin(btVector3(s.x, s.y, s.z));
+		regolith.createGrain(transform, s.r*squishing_factor, i);
+	}
+}
+
 void ConePenetrationTest::addInitialGrains() {
 	auto pack = PG::SpherePack();
 	auto squishing_factor = utils::try_get(config["simulation"]["initialization"]["squishing_factor"],
 	                                       1.);
 	if (config["simulation"]["initialization"]["from_file"]) {
+		std::cout<<"loading from file"<<std::endl;
 		auto f = std::ifstream(config["simulation"]["initialization"]["from_file"].as<std::string>());
 		double x, y, z, r;
 		while (f >> x >> y >> z >> r) {
-			std::cout<<x<<" "<<y<<" "<<z<<" "<<r<<std::endl;
 			pack.s.emplace_back(x*units_per_m, y*units_per_m, z*units_per_m, r*units_per_m);
 		}
 	}
 	else {
+		simprof::Manager::start("generate spheres");
 		auto sizes_count = regolith.grain_radii.size();
 		double sizes[sizes_count];
 		double p[sizes_count];
@@ -564,21 +581,57 @@ void ConePenetrationTest::addInitialGrains() {
 		                                            {0.0, BOX_H, 0.0},
 		                                            BOX_DIAMETER/2.);
 
+		std::cout<<"generating packing"<<std::endl;
 		PG::SpherePackStat result = PG::GenerateSpherePack(container, ng, &dom, &pack);
+		simprof::Manager::stop();
 	}
+
+	simprof::Manager::start("prepare memory");
+	std::cout<<"preparing memory"<<std::endl;
 	regolith.grains.reserve(pack.s.size());
-	regolith.motion_states.reserve(pack.s.size());
-	m_dynamicsWorld->getNonStaticRigidBodies().reserve(pack.s.size());
-	for(auto s: pack.s) {
-		if (regolith.grains.size() % 100 == 0) {
-			std::cout<<regolith.grains.size()<<std::endl;
-		}
-		btTransform transform;
-		transform.setIdentity();
-		transform.setOrigin(btVector3(s.x, s.y, s.z));
-		auto grain = regolith.createGrain(transform, s.r*squishing_factor);
-    m_dynamicsWorld->addRigidBody(grain);
+	for(int i = 0; i < pack.s.size(); ++i) {
+		regolith.grains.emplace_back(0., nullptr, nullptr);
 	}
+	regolith.motion_states.resize(pack.s.size());
+	simprof::Manager::stop();
+
+
+	std::cout<<"creating grains"<<std::endl;
+	simprof::Manager::start("create grains");
+	if (config["simulation"]["threads"].as<int>() > 1) {
+		auto threads_count = config["simulation"]["threads"].as<int>();
+		unsigned int objects_per_thread = pack.s.size()/threads_count;
+		unsigned int rest = pack.s.size() % threads_count;
+		unsigned int start = 0, end = 0;
+		std::vector<std::thread> threads;
+		for(int i = 0; i < threads_count; ++i){
+			end = start + objects_per_thread;
+			if (i < rest) {
+				++end;
+			}
+			std::cout<<"thread: "<<start<< " to " << end << std::endl;
+			threads.push_back(std::thread([this, &pack, start, end, squishing_factor](){
+				initGrainsRange(pack.s, start, end, squishing_factor);
+				}));
+			start = end;
+		}
+		for (auto& thread: threads) {
+			thread.join();
+		}
+	} else {
+		initGrainsRange(pack.s, 0, pack.s.size(), squishing_factor);
+	}
+	simprof::Manager::stop();
+
+	simprof::Manager::start("Add grains to world");
+	m_dynamicsWorld->getNonStaticRigidBodies().reserve(pack.s.size() + 10);
+	m_dynamicsWorld->getCollisionObjectArray().reserve(pack.s.size() + 10);
+	for(auto& grain: regolith.grains) {
+		m_dynamicsWorld->addRigidBody(&grain);
+	}
+	simprof::Manager::stop();
+	simprof::Manager::dump(std::cout);
+
 }
 
 int ConePenetrationTest::removeGrains() {
