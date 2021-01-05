@@ -134,10 +134,10 @@ struct ConePenetrationTest : public CommonRigidBodyBase
 	void stepSimulation(float deltaTime) override;
 	void resetCamera()
 	{
-		float dist = 1.2*BOX_DIAMETER;
+		float dist = 1.6*BOX_DIAMETER;
 		float pitch = -35;
 		float yaw = 52;
-		float targetPos[3] = {0, 0.2*BOX_H, 0};
+		float targetPos[3] = {0, 0.4*BOX_H, 0};
 		m_guiHelper->resetCamera(dist, yaw, pitch, targetPos[0], targetPos[1], targetPos[2]);
 	}
 
@@ -290,9 +290,11 @@ void ConePenetrationTest::initPhysics()
 	}
 		
 	// thershold is squared distance. Also should be proportional to grains
-	auto max_error_ratio = utils::try_get(config["simulation"]["solver"]["max_error_ratio"], 1.);
-	auto threshold = std::pow(regolith.properties.minRadius*max_error_ratio, 2)*regolith.grains.size();
-	m_dynamicsWorld->getSolverInfo().m_leastSquaresResidualThreshold = threshold;
+	auto max_error_ratio = utils::try_get(config["simulation"]["solver"]["max_error_ratio"], -1.);
+  if (max_error_ratio > 0.) {
+  	auto threshold = std::pow(regolith.properties.minRadius*max_error_ratio, 2)*regolith.grains.size();
+  	m_dynamicsWorld->getSolverInfo().m_leastSquaresResidualThreshold = threshold;
+  }
 
 	// initialize graphics
 	m_guiHelper->autogenerateGraphicsObjects(m_dynamicsWorld);
@@ -423,6 +425,8 @@ void ConePenetrationTest::stepPressurePhase()
 		}
 
 		std::cout<<"void ratio: "<<(V-grains_volume)/grains_volume<<std::endl;
+		std::cout<<"void fraction: "<<(V-grains_volume)/V<<std::endl;
+		std::cout<<"packing density: "<<grains_volume/V<<std::endl;
 		std::cout<<"percent of volume used: "<<grains_volume/V*100.<<std::endl;
 
 		auto relativeDensity = ((grains_mass/V)-regolith.properties.minDensity)/(regolith.properties.maxDensity - regolith.properties.minDensity);
@@ -537,7 +541,6 @@ void ConePenetrationTest::addInitialGrains() {
 		auto f = std::ifstream(config["simulation"]["initialization"]["from_file"].as<std::string>());
 		double x, y, z, r;
 		while (f >> x >> y >> z >> r) {
-			std::cout<<x<<" "<<y<<" "<<z<<" "<<r<<std::endl;
 			pack.s.emplace_back(x*units_per_m, y*units_per_m, z*units_per_m, r*units_per_m);
 		}
 	}
@@ -613,7 +616,8 @@ void ConePenetrationTest::createProbe() {
 	btCompoundShape* probeShape = new btCompoundShape();
 	btTransform probeTransform;
 
-	btScalar probeH =  1./std::tan(SIMD_PI/6.)*probeRadius;
+	auto tip_angle = config["probe"]["angle"].as<double>();
+	btScalar probeH =  1./std::tan(tip_angle/360. * SIMD_PI)*probeRadius;
 	btConeShape* tipShape = new btConeShape(probeRadius, probeH);
 	auto rot = btQuaternion(btVector3(1.,0.,0.), SIMD_PI);
 	probeTransform.setRotation(rot);
@@ -655,7 +659,7 @@ void ConePenetrationTest::createPressurePlate() {
 	for (auto grain: regolith.grains) {
 		max_y = std::max(max_y, grain.getWorldTransform().getOrigin().getY());
 	}
-	plateTransform.setOrigin(btVector3(0., max_y + pressurePlateThickness/2. + 2*regolith.properties.maxRadius , 0.));
+	plateTransform.setOrigin(btVector3(0., max_y + 1*regolith.properties.maxRadius , 0.));
 	m_collisionShapes.push_back(pressurePlateShape);
 	auto plateMass = pressure*(BOX_DIAMETER/2.1*BOX_DIAMETER/2.1*SIMD_PI)/(-m_dynamicsWorld->getGravity().getY());
 	std::cout<<"plate mass: "<<plateMass<<std::endl;
