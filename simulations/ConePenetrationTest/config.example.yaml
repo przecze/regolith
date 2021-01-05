@@ -1,7 +1,7 @@
 simulation:
-  big_step: 0.05
+  big_step: 0.01
   profile_level: 2
-  small_steps_per_second: 120
+  small_steps_per_second: 2500
   initialization:
     v2_thershold: 0.005
     squishing_factor: 1.00
@@ -10,46 +10,47 @@ simulation:
   pressure:
     plate_v_thershold: 0.08
   penetration:
-    big_step: 0.05
+    big_step: 0.01
   solver:
-    iterations: 200
-    max_error_ratio: .5
+    iterations: 300
+    #max_error_ratio: .01
   gravity: -10.
   broadphase: "axis"
   threads: 8
   units_per_m: 100.
 
 box:
-  diameter: 1.2
-  height: 0.7
+  diameter: 0.7
+  height: 0.9
   wall_thickness: 0.01
 
 probe:
-  velocity: -.1
-  radius: 0.035
-  mass: 500.
-  friction: 1.
+  velocity: -1.
+  radius: 0.008
+  mass: 10.
+  angle: 90.
+  friction: 0.3
   restitution: 0.3
 
 pressure:
-  value: 60000
-  plate_thickness: 0.1
+  value: 80000
+  plate_thickness: 0.02
 
 regolith:
   units_per_m: 100.
   # physics properties
-  restitution: 0.3
-  friction: 0.35
+  restitution: 0.0
+  friction: 0.8
   rollingFriction: 1.
 
   # radii in m
-  maxRadius: 0.04
-  minRadius: 0.03
+  maxRadius: 0.02
+  minRadius: 0.02
   # Below values in kg/m^3
 
   # Calculated assuming water density 997
   # 2.68*997
-  materialDensity: 2672
+  materialDensity: 2700
 
   maxDensity: 1667
   minDensity: 1364
