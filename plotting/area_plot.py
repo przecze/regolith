@@ -45,28 +45,39 @@ def area_plot(data, labels):
         previous_series += series
     return plots
 
-json_data  = json.load(open("profiler_data.json"))
-times = []
-phases=[("start", 0)]
-for i, step_data in enumerate(json_data["data"]):
-    phase_name = {
-            0: "inicjalizacja",
-            1: "aplikacja ciśnienia",
-            2: "penetracja",
-            3: "koniec"
-            }[step_data["phase"]]
-    if phases[-1][0] != phase_name:
-        phases.append((phase_name, i))
-    [internal_step_data] = [child for child in step_data["children"] if child["name"]=="Internal world step"]
-    step_names = [child["name"] for child in internal_step_data["children"]]
-    times.append([child["total_time"] for child in internal_step_data["children"]])
-    times[-1].append(internal_step_data["total_time"] - sum(times[-1]))
-    step_names.append("other")
-    print(dict(zip(step_names, times[-1])))
-phases = phases[1:]
-data = np.array(list(zip(*times)))
-plots = area_plot(data, step_names)
-fig = go.Figure(data=plots)
+data = []
+for name in ("as", "dbvt"):
+    json_data  = json.load(open(f"{name}.json"))
+    times = []
+    phases=[("start", 0)]
+    for i, step_data in enumerate(json_data["data"]):
+        phase_name = {
+                0: "inicjalizacja",
+                1: "aplikacja ciśnienia",
+                2: "penetracja",
+                3: "koniec"
+                }[step_data["phase"]]
+        if phases[-1][0] != phase_name:
+            phases.append((phase_name, i))
+        [internal_step_data] = [child for child in step_data["children"] if child["name"]=="Internal world step"]
+        #step_names = [child["name"] for child in internal_step_data["children"]]
+        steps_per_point = 0.01 / (1./2500)
+        times.append(internal_step_data["total_time"]/steps_per_point) #for child in internal_step_data["children"]])
+        #times[-1].append(internal_step_data["total_time"] - sum(times[-1]))
+        #step_names.append("other")
+        #print(dict(zip(step_names, times[-1])))
+    phases = phases[1:]
+    #data = np.array(list(zip(*times)))
+    #plots = area_plot(data, step_names)
+    data.append(times)
+data[0] = data[0][:len(data[0])]
+size = min(len(data[0]), len(data[1]))
+data[0] = data[0][:size]
+data[1] = data[1][:size]
+print(sum(data[0])/size*65/6)
+print(sum(data[1])/size*65/6)
+fig = go.Figure(data=[go.Scatter(x=np.arange(size), y=data[0][:size], name="Axis Sweep"),
+                      go.Scatter(x=np.arange(size), y=data[1][:size], name="DBVT")])
 fig.update_layout(
     xaxis = dict(
         tickmode = 'array',
@@ -74,6 +85,14 @@ fig.update_layout(
         ticktext = ["  "+p for p, i in phases]
     )
 )
+fig.update_layout(legend=dict(
+    yanchor="top",
+    y=0.99,
+    xanchor="left",
+    x=0.01
+    ),
+    yaxis_title="Czas wykonania kroku symulacji [ms]",
+    xaxis_title="Czas symulacji")
 fig.update_xaxes(
     showgrid=True,
     ticklabelposition="outside right",
@@ -81,6 +100,7 @@ fig.update_xaxes(
     tickson="boundaries",
     ticklen=20
 )
-fig.update_yaxes(range=[0, 30000])
+#fig.update_yaxes(range=[0, 4])
+fig.write_image("broadphase.pdf")
 
 fig.show()
