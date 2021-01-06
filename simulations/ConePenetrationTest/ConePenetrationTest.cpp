@@ -282,9 +282,9 @@ void ConePenetrationTest::initPhysics()
 	tower->setRollingFriction(utils::try_get<double>(config["box"]["rolling_friction"], 0.));
 
 	// add initial grains
-	std::cout<<"Creating initial grains"<<std::endl;
+	//std::cout<<"Creating initial grains"<<std::endl;
 	addInitialGrains();
-	std::cout<<"Initial grains count: "<<regolith.grains.size()<<std::endl;
+	//std::cout<<"Initial grains count: "<<regolith.grains.size()<<std::endl;
 	if (regolith.grains.size() < 20) {
 		std::exit(1);
 	}
@@ -322,8 +322,8 @@ void ConePenetrationTest::stepStabilizationPhase()
 	auto v2_thershold = utils::try_get<double>(config["simulation"]["initialization"]["v2_thershold"],
 	                                           0.001)*units_per_m*units_per_m;
 	auto v2_per_grain = total_v2/regolith.grains.size();
-	std::cout<<"total v2: "<<total_v2/units_per_m/units_per_m<<std::endl;
-  std::cout<<"v2 per grain: "<<v2_per_grain/units_per_m/units_per_m<<std::endl;
+	//std::cout<<"total v2: "<<total_v2/units_per_m/units_per_m<<std::endl;
+  //std::cout<<"v2 per grain: "<<v2_per_grain/units_per_m/units_per_m<<std::endl;
 	if (v2_per_grain < v2_thershold) {
 		if (config["simulation"]["initialization"]["save_file"]) {
 			auto f = std::ofstream(config["simulation"]["initialization"]["save_file"].as<std::string>());
@@ -340,7 +340,7 @@ void ConePenetrationTest::stepStabilizationPhase()
 		}
 		phase=PRESSURE_PHASE;
 		//rescaleTime(4.);
-		std::cout<<"next phase: PRESSURE_PHASE"<<std::endl;
+		//std::cout<<"next phase: PRESSURE_PHASE"<<std::endl;
 		createPressurePlate();
 	}
 }
@@ -389,7 +389,7 @@ void ConePenetrationTest::reportErrorByY()
 	//}
 
 	for(int i = 0; i<buckets; ++i) {
-		std::cout<<"bucket: "<<i<<" total error: "<<error_per_bucket[i]<<" pairs: "<< pairs_per_bucket[i] << " error per pair: " << error_per_bucket[i]/pairs_per_bucket[i]<<std::endl;
+		//std::cout<<"bucket: "<<i<<" total error: "<<error_per_bucket[i]<<" pairs: "<< pairs_per_bucket[i] << " error per pair: " << error_per_bucket[i]/pairs_per_bucket[i]<<std::endl;
 	}
 }
 
@@ -399,13 +399,13 @@ void ConePenetrationTest::stepPressurePhase()
 	//reportErrorByY();
 	auto plate_y = pressurePlate->getWorldTransform().getOrigin().getY();
 	auto plate_v = pressurePlate->getLinearVelocity().getY();
-	std::cout<<"plate y: "<<plate_y<<std::endl;
-  std::cout<<"plate v: "<<plate_v/units_per_m<<std::endl;
+	//std::cout<<"plate y: "<<plate_y<<std::endl;
+  //std::cout<<"plate v: "<<plate_v/units_per_m<<std::endl;
 	auto v_thershold = utils::try_get<double>(config["simulation"]["pressure"]["plate_v_thershold"],
 	                                          0.01)*units_per_m;
 
 	if(abs(plate_v) < v_thershold) {
-		std::cout<<"next phase: PENETRATION_PHASE"<<std::endl;
+		//std::cout<<"next phase: PENETRATION_PHASE"<<std::endl;
 		phase = PENETRATION_PHASE;
 		createProbe();
 		auto h = pressurePlate->getWorldTransform().getOrigin().getY()-pressurePlateThickness/2;
@@ -424,21 +424,21 @@ void ConePenetrationTest::stepPressurePhase()
 			grains_volume += grain_volume;
 		}
 
-		std::cout<<"void ratio: "<<(V-grains_volume)/grains_volume<<std::endl;
-		std::cout<<"void fraction: "<<(V-grains_volume)/V<<std::endl;
-		std::cout<<"packing density: "<<grains_volume/V<<std::endl;
-		std::cout<<"percent of volume used: "<<grains_volume/V*100.<<std::endl;
+		//std::cout<<"void ratio: "<<(V-grains_volume)/grains_volume<<std::endl;
+		//std::cout<<"void fraction: "<<(V-grains_volume)/V<<std::endl;
+		//std::cout<<"packing density: "<<grains_volume/V<<std::endl;
+		//std::cout<<"percent of volume used: "<<grains_volume/V*100.<<std::endl;
 
 		auto relativeDensity = ((grains_mass/V)-regolith.properties.minDensity)/(regolith.properties.maxDensity - regolith.properties.minDensity);
-		std::cout<<"relative density: "<<relativeDensity<<std::endl;
+		//std::cout<<"relative density: "<<relativeDensity<<std::endl;
 		auto Rd = BOX_DIAMETER/2./probeRadius;
 		correctionFactor = correction_factor(relativeDensity, Rd);
 		const auto p0 = 1000.*100/units_per_m/units_per_m;
 		auto expectedResistance = 23.19*p0*std::pow(pressure/p0, 0.56)*std::exp(2.97*relativeDensity);
 		auto expectedMeasuredResistance = expectedResistance/correctionFactor;
-		std::cout<<"correctionFactor: "<<correctionFactor<<std::endl;
+		//std::cout<<"correctionFactor: "<<correctionFactor<<std::endl;
 		//std::cout<<"correctionFactorold: "<<correction_factor_old(relativeDensity, Rd)<<std::endl;
-		std::cout<<"expected resistance to be measured: "<<expectedResistance*units_per_m*units_per_m<<std::endl;
+		//std::cout<<"expected resistance to be measured: "<<expectedResistance*units_per_m*units_per_m<<std::endl;
 		update_time = config["simulation"]["penetration"]["big_step"].as<double>();
 	}
 }
@@ -454,17 +454,16 @@ void ConePenetrationTest::stepPenetrationPhase(int steps_since_last_update, doub
 		total_time -= steps_since_last_update*dt;
 	}
 	total_time += steps_since_last_update*dt;
-	std::cout<<"distance: "<<(y-initial_y)/units_per_m<<std::endl;
-	std::cout<<"total_time: "<<total_time<<std::endl;
-	std::cout<<"average speed: "<<(y-initial_y)/units_per_m/total_time<<std::endl;
+	//std::cout<<"distance: "<<(y-initial_y)/units_per_m<<std::endl;
+	//std::cout<<"total_time: "<<total_time<<std::endl;
+	//std::cout<<"average speed: "<<(y-initial_y)/units_per_m/total_time<<std::endl;
 
 	// calculate and report resistance based on total velocity change accumulated since last update
 	auto mass = 1./probe->getInvMass();
 	auto momentumChange = velocity_change*mass;
 	auto resistanceForce = (momentumChange)/(steps_since_last_update*dt);
 	auto resistance = resistanceForce / (probeRadius*probeRadius*SIMD_PI);
-	std::cout<<"probe y: "<<y/units_per_m<<std::endl;
-  std::cout<<"resistance: "<<resistance*units_per_m*units_per_m<<std::endl;
+	//std::cout<<y/units_per_m<<" "<<resistance*units_per_m*units_per_m<<std::endl;
   if (y<BOX_H/4.) {
     phase = FINISHED_PHASE;
   }
@@ -491,24 +490,26 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 
 	// in penetration phase there are things we need to do every step
 	if (phase == PENETRATION_PHASE) {
-		probe_velocity_change += probe->getLinearVelocity().getY()-probeVelocity;
+		//probe_velocity_change += probe->getLinearVelocity().getY()-probeVelocity;
+		auto dv = probe->getLinearVelocity().getY()-probeVelocity;
 		probe->setLinearVelocity(btVector3(0., probeVelocity, 0.));
+		std::cout<<probe->getWorldTransform().getOrigin().getY()<<" "<<dv<<std::endl;
 	}
 
 	if(steps_since_last_update*dt > update_time) {
-		std::cout<<std::endl;
+		//std::cout<<std::endl;
 		if (profile_level > 0) {
 			simprof::Manager::start("Additional logic");
 		}
 		auto solver = static_cast<btSequentialImpulseConstraintSolver*>(m_solver);
-		std::cout<<"iterations: "<<solver->m_analyticsData.m_numIterationsUsed<<std::endl;
-		std::cout<<"residual: "<<solver->m_analyticsData.m_remainingLeastSquaresResidual<<std::endl;
-		std::cout<<"residual per grain: "<<solver->m_analyticsData.m_remainingLeastSquaresResidual/regolith.grains.size()<<std::endl;
-		std::cout<<"rescaled residual per grain: "<<solver->m_analyticsData.m_remainingLeastSquaresResidual/regolith.grains.size()/units_per_m/units_per_m<<std::endl;
+		//std::cout<<"iterations: "<<solver->m_analyticsData.m_numIterationsUsed<<std::endl;
+		//std::cout<<"residual: "<<solver->m_analyticsData.m_remainingLeastSquaresResidual<<std::endl;
+		//std::cout<<"residual per grain: "<<solver->m_analyticsData.m_remainingLeastSquaresResidual/regolith.grains.size()<<std::endl;
+		//std::cout<<"rescaled residual per grain: "<<solver->m_analyticsData.m_remainingLeastSquaresResidual/regolith.grains.size()/units_per_m/units_per_m<<std::endl;
 		auto current = steady_clock::now();
 		auto elapsed = current - last;
 		last = current;
-		std::cout<<"last step took: "<<std::chrono::duration_cast<milliseconds>(elapsed).count()<<std::endl;
+		//std::cout<<"last step took: "<<std::chrono::duration_cast<milliseconds>(elapsed).count()<<std::endl;
 		if (phase == STABILIZATION_PHASE) {
 			stepStabilizationPhase();
 		} else if (phase == PRESSURE_PHASE) {
@@ -574,7 +575,7 @@ void ConePenetrationTest::addInitialGrains() {
 	m_dynamicsWorld->getNonStaticRigidBodies().reserve(pack.s.size());
 	for(auto s: pack.s) {
 		if (regolith.grains.size() % 100 == 0) {
-			std::cout<<regolith.grains.size()<<std::endl;
+			//std::cout<<regolith.grains.size()<<std::endl;
 		}
 		btTransform transform;
 		transform.setIdentity();
@@ -598,7 +599,7 @@ int ConePenetrationTest::removeGrains() {
 	//		++it;
 	//	}
 	//}
-	std::cout<<"REMOVED: "<<removed<<std::endl;
+	//std::cout<<"REMOVED: "<<removed<<std::endl;
 	return removed;
 }
 
@@ -624,7 +625,7 @@ void ConePenetrationTest::createProbe() {
 	probeTransform.setOrigin(btVector3(0.,probeH/2.,0.));
 	probeShape->addChildShape(probeTransform, tipShape);
 
-	btScalar rodLength = BOX_H;
+	btScalar rodLength = pressurePlate->getWorldTransform().getOrigin().getY();//BOX_H;
 	btCollisionShape* rodShape = new btCylinderShape(btVector3{probeRadius,rodLength/2.,probeRadius});
 	probeTransform.setIdentity();
 	probeTransform.setOrigin(btVector3(0., probeH+rodLength/2., 0.));
@@ -662,7 +663,7 @@ void ConePenetrationTest::createPressurePlate() {
 	plateTransform.setOrigin(btVector3(0., max_y + 1*regolith.properties.maxRadius , 0.));
 	m_collisionShapes.push_back(pressurePlateShape);
 	auto plateMass = pressure*(BOX_DIAMETER/2.1*BOX_DIAMETER/2.1*SIMD_PI)/(-m_dynamicsWorld->getGravity().getY());
-	std::cout<<"plate mass: "<<plateMass<<std::endl;
+	//std::cout<<"plate mass: "<<plateMass<<std::endl;
 	pressurePlate = createRigidBody(plateMass, plateTransform, pressurePlateShape);
 	pressurePlate->setFriction(utils::try_get<double>(config["box"]["friction"], 0.));
 	pressurePlate->setRestitution(utils::try_get<double>(config["box"]["restitution"], 0.));
