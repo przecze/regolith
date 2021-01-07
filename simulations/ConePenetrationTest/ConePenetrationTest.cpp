@@ -496,7 +496,7 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 		auto dv = probe->getLinearVelocity().getY()-probeVelocity;
 		if (not first) {
 			probe->setLinearVelocity(btVector3(0., probeVelocity, 0.));
-			std::cout<<probe->getWorldTransform().getOrigin().getY()<<" "<<2*dv_last-dv<<std::endl;
+			std::cout<<probe->getWorldTransform().getOrigin().getY()<<" "<<dv_last<<" "<<dv<<std::endl;
 		}
 		first = not first;
 		dv_last = dv;
