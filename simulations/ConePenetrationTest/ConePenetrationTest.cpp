@@ -475,6 +475,8 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 	static auto last = steady_clock::now();
 	static int steps_since_last_update = 0;
 	static int grains_count = 0;
+  static double dv_last = 0;
+  static bool first = true;
 	static double probe_velocity_change = 0;
 	{
 		// note: stepSimulation doesn't return the actual steps performed, but
@@ -492,8 +494,12 @@ void ConePenetrationTest::stepSimulation(float deltaTime)
 	if (phase == PENETRATION_PHASE) {
 		//probe_velocity_change += probe->getLinearVelocity().getY()-probeVelocity;
 		auto dv = probe->getLinearVelocity().getY()-probeVelocity;
-		probe->setLinearVelocity(btVector3(0., probeVelocity, 0.));
-		std::cout<<probe->getWorldTransform().getOrigin().getY()<<" "<<dv<<std::endl;
+		if (not first) {
+			probe->setLinearVelocity(btVector3(0., probeVelocity, 0.));
+			std::cout<<probe->getWorldTransform().getOrigin().getY()<<" "<<2*dv_last-dv<<std::endl;
+		}
+		first = not first;
+		dv_last = dv;
 	}
 
 	if(steps_since_last_update*dt > update_time) {
