@@ -32,10 +32,13 @@ y = np.array(y_rescaled)/units_per_m
 dv = np.array(dv_rescaled)/units_per_m
 q = dv*m/dt/A
 print(f"avrg q: {sum(q)/len(q)/1e6}")
+av_q = sum(q)/len(q)
 moving_average_width = 100
 q_avrg = np.convolve(q, np.ones(moving_average_width), 'valid')/moving_average_width
 v_avrg = (max(y)-min(y))/(len(y)*dt)
 print(f"average v: {v_avrg}")
+print((av_q*dt + m/A*v_avrg)*A/m)
+
 
 fig = go.Figure(data=[go.Scatter(x=q, y=y), go.Scatter(x=q_avrg, y=y)])
 fig.update_xaxes(range=[0, 20e6])
